@@ -61,7 +61,7 @@ class FFmpegPostProcessor(PostProcessor):
 
     def check_version(self):
         if not self.available:
-            raise FFmpegPostProcessorError('ffmpeg not found. Please install')
+            raise FFmpegPostProcessorError('ffmpeg not found. Please install or provide the path using --ffmpeg-location')
 
         required_version = '10-0' if self.basename == 'avconv' else '1.0'
         if is_outdated_version(
@@ -165,7 +165,7 @@ class FFmpegPostProcessor(PostProcessor):
 
     def get_audio_codec(self, path):
         if not self.probe_available and not self.available:
-            raise PostProcessingError('ffprobe and ffmpeg not found. Please install')
+            raise PostProcessingError('ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location')
         try:
             if self.probe_available:
                 cmd = [
@@ -207,7 +207,7 @@ class FFmpegPostProcessor(PostProcessor):
         if self.probe_basename != 'ffprobe':
             if self.probe_available:
                 self.report_warning('Only ffprobe is supported for metadata extraction')
-            raise PostProcessingError('ffprobe not found. Please install.')
+            raise PostProcessingError('ffprobe not found. Please install or provide the path using --ffmpeg-location')
         self.check_version()
 
         cmd = [
@@ -550,8 +550,8 @@ class FFmpegMetadataPP(FFmpegPostProcessor):
 
         add('title', ('track', 'title'))
         add('date', 'upload_date')
-        add(('description', 'comment'), 'description')
-        add('purl', 'webpage_url')
+        add(('description', 'synopsis'), 'description')
+        add(('purl', 'comment'), 'webpage_url')
         add('track', 'track_number')
         add('artist', ('artist', 'creator', 'uploader', 'uploader_id'))
         add('genre')
@@ -797,12 +797,12 @@ class FFmpegSplitChaptersPP(FFmpegPostProcessor):
         return (
             destination,
             ['-ss', compat_str(chapter['start_time']),
-             '-to', compat_str(chapter['end_time'])])
+             '-t', compat_str(chapter['end_time'] - chapter['start_time'])])
 
     def run(self, info):
         chapters = info.get('chapters') or []
         if not chapters:
-            self.report_warning('There are no tracks to extract')
+            self.report_warning('Chapter information is unavailable')
             return [], info
 
         self.to_screen('Splitting video by chapters; %d chapters found' % len(chapters))

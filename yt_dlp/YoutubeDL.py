@@ -1644,7 +1644,7 @@ class YoutubeDL(object):
                         new_dict.update({
                             'width': the_only_video.get('width'),
                             'height': the_only_video.get('height'),
-                            'resolution': the_only_video.get('resolution'),
+                            'resolution': the_only_video.get('resolution') or self.format_resolution(the_only_video),
                             'fps': the_only_video.get('fps'),
                             'vcodec': the_only_video.get('vcodec'),
                             'vbr': the_only_video.get('vbr'),
@@ -2141,7 +2141,10 @@ class YoutubeDL(object):
                 fd.add_progress_hook(ph)
             if self.params.get('verbose'):
                 self.to_screen('[debug] Invoking downloader on %r' % info.get('url'))
-            return fd.download(name, info, subtitle)
+            new_info = dict(info)
+            if new_info.get('http_headers') is None:
+                new_info['http_headers'] = self._calc_headers(new_info)
+            return fd.download(name, new_info, subtitle)
 
         subtitles_are_requested = any([self.params.get('writesubtitles', False),
                                        self.params.get('writeautomaticsub')])
@@ -2340,10 +2343,17 @@ class YoutubeDL(object):
 
                     requested_formats = info_dict['requested_formats']
                     old_ext = info_dict['ext']
-                    if self.params.get('merge_output_format') is None and not compatible_formats(requested_formats):
-                        info_dict['ext'] = 'mkv'
-                        self.report_warning(
-                            'Requested formats are incompatible for merge and will be merged into mkv.')
+                    if self.params.get('merge_output_format') is None:
+                        if not compatible_formats(requested_formats):
+                            info_dict['ext'] = 'mkv'
+                            self.report_warning(
+                                'Requested formats are incompatible for merge and will be merged into mkv.')
+                        if (info_dict['ext'] == 'webm'
+                                and self.params.get('writethumbnail', False)
+                                and info_dict.get('thumbnails')):
+                            info_dict['ext'] = 'mkv'
+                            self.report_warning(
+                                'webm doesn\'t support embedding a thumbnail, mkv will be used.')
 
                     def correct_ext(filename):
                         filename_real_ext = os.path.splitext(filename)[1][1:]
@@ -2459,13 +2469,13 @@ class YoutubeDL(object):
                         assert fixup_policy in ('ignore', 'never')
 
                 try:
-                    self.post_process(dl_filename, info_dict, files_to_move)
+                    info_dict = self.post_process(dl_filename, info_dict, files_to_move)
                 except PostProcessingError as err:
                     self.report_error('Postprocessing: %s' % str(err))
                     return
                 try:
                     for ph in self._post_hooks:
-                        ph(full_filename)
+                        ph(info_dict['filepath'])
                 except Exception as err:
                     self.report_error('post hooks: %s' % str(err))
                     return
@@ -2599,6 +2609,7 @@ class YoutubeDL(object):
         del info['__files_to_move']
         for pp in self._pps['aftermove']:
             info = self.run_pp(pp, info)
+        return info
 
     def _make_archive_id(self, info_dict):
         video_id = info_dict.get('id')
@@ -2647,12 +2658,11 @@ class YoutubeDL(object):
             return 'audio only'
         if format.get('resolution') is not None:
             return format['resolution']
-        if format.get('height') is not None:
-            if format.get('width') is not None:
-                res = '%sx%s' % (format['width'], format['height'])
-            else:
-                res = '%sp' % format['height']
-        elif format.get('width') is not None:
+        if format.get('width') and format.get('height'):
+            res = '%dx%d' % (format['width'], format['height'])
+        elif format.get('height'):
+            res = '%sp' % format['height']
+        elif format.get('width'):
             res = '%dx?' % format['width']
         else:
             res = default
