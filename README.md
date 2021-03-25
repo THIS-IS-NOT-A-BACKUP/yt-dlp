@@ -3,7 +3,7 @@
 [![Release version](https://img.shields.io/github/v/release/yt-dlp/yt-dlp?color=brightgreen&label=Release)](https://github.com/yt-dlp/yt-dlp/releases/latest)
 [![License: Unlicense](https://img.shields.io/badge/License-Unlicense-blue.svg)](LICENSE)
 [![CI Status](https://github.com/yt-dlp/yt-dlp/workflows/Core%20Tests/badge.svg?branch=master)](https://github.com/yt-dlp/yt-dlp/actions)
-[![Discord](https://img.shields.io/discord/807245652072857610?color=blue&label=discord&logo=discord)](https://discord.gg/S75JaBna)  
+[![Discord](https://img.shields.io/discord/807245652072857610?color=blue&label=discord&logo=discord)](https://discord.gg/H5MNcFW63r)  
 
 [![Commits](https://img.shields.io/github/commit-activity/m/yt-dlp/yt-dlp?label=commits)](https://github.com/yt-dlp/yt-dlp/commits)
 [![Last Commit](https://img.shields.io/github/last-commit/yt-dlp/yt-dlp/master)](https://github.com/yt-dlp/yt-dlp/commits)
@@ -58,7 +58,7 @@ The major new features from the latest release of [blackjack4494/yt-dlc](https:/
 
 * **[Format Sorting](#sorting-formats)**: The default format sorting options have been changed so that higher resolution and better codecs will be now preferred instead of simply using larger bitrate. Furthermore, you can now specify the sort order using `-S`. This allows for much easier format selection that what is possible by simply using `--format` ([examples](#format-selection-examples))
 
-* **Merged with youtube-dl v2021.03.14**: You get all the latest features and patches of [youtube-dl](https://github.com/ytdl-org/youtube-dl) in addition to all the features of [youtube-dlc](https://github.com/blackjack4494/yt-dlc)
+* **Merged with youtube-dl v2021.03.25**: You get all the latest features and patches of [youtube-dl](https://github.com/ytdl-org/youtube-dl) in addition to all the features of [youtube-dlc](https://github.com/blackjack4494/yt-dlc)
 
 * **Merged with animelover1984/youtube-dl**: You get most of the features and improvements from [animelover1984/youtube-dl](https://github.com/animelover1984/youtube-dl) including `--get-comments`, `BiliBiliSearch`, `BilibiliChannel`, Embedding thumbnail in mp4/ogg/opus, Playlist infojson etc. Note that the NicoNico improvements are not available. See [#31](https://github.com/yt-dlp/yt-dlp/pull/31) for details.
 
@@ -670,18 +670,24 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
     --add-metadata                   Write metadata to the video file
     --no-add-metadata                Do not write metadata (default)
     --parse-metadata FIELD:FORMAT    Parse additional metadata like title/artist
-                                     from other fields. Give field name to
-                                     extract data from, and format of the field
-                                     seperated by a ":". Either regular
-                                     expression with named capture groups or a
-                                     similar syntax to the output template can
-                                     also be used. The parsed parameters replace
-                                     any existing values and can be use in
-                                     output template. This option can be used
-                                     multiple times. Example: --parse-metadata
-                                     "title:%(artist)s - %(title)s" matches a
-                                     title like "Coldplay - Paradise". Example
-                                     (regex): --parse-metadata
+                                     from other fields. Give a template or field
+                                     name to extract data from and the format to
+                                     interpret it as, seperated by a ":". Either
+                                     regular expression with named capture
+                                     groups or a similar syntax to the output
+                                     template can be used for the FORMAT.
+                                     Similarly, the syntax for output template
+                                     can be used for FIELD to parse the data
+                                     from multiple fields. The parsed parameters
+                                     replace any existing values and can be used
+                                     in output templates. This option can be
+                                     used multiple times. Example: --parse-
+                                     metadata "title:%(artist)s - %(title)s"
+                                     matches a title like "Coldplay - Paradise".
+                                     Example: --parse-metadata "%(series)s
+                                     %(episode_number)s:%(title)s" sets the
+                                     title using series and episode number.
+                                     Example (regex): --parse-metadata
                                      "description:Artist - (?P<artist>.+?)"
     --xattrs                         Write metadata to the video file's xattrs
                                      (using dublin core and xdg standards)
