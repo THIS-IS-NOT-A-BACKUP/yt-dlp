@@ -264,6 +264,7 @@ from .commonmistakes import CommonMistakesIE, UnicodeBOMIE
 from .commonprotocols import (
     MmsIE,
     RtmpIE,
+    ViewSourceIE,
 )
 from .condenast import CondeNastIE
 from .contv import CONtvIE
@@ -315,6 +316,7 @@ from .douyutv import (
 from .dplay import (
     DPlayIE,
     DiscoveryPlusIE,
+    DiscoveryPlusIndiaIE,
     HGTVDeIE,
 )
 from .dreisat import DreiSatIE
