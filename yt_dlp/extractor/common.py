@@ -1889,7 +1889,8 @@ class InfoExtractor(object):
         if '#EXT-X-FAXS-CM:' in m3u8_doc:  # Adobe Flash Access
             return []
 
-        if re.search(r'#EXT-X-SESSION-KEY:.*?URI="skd://', m3u8_doc):  # Apple FairPlay
+        if (not self._downloader.params.get('allow_unplayable_formats')
+                and re.search(r'#EXT-X-SESSION-KEY:.*?URI="skd://', m3u8_doc)):  # Apple FairPlay
             return []
 
         formats = []
@@ -3221,7 +3222,10 @@ class InfoExtractor(object):
         """ Return a compat_cookies.SimpleCookie with the cookies for the url """
         req = sanitized_Request(url)
         self._downloader.cookiejar.add_cookie_header(req)
-        return compat_cookies.SimpleCookie(req.get_header('Cookie'))
+        cookie = req.get_header('Cookie')
+        if cookie and sys.version_info[0] == 2:
+            cookie = str(cookie)
+        return compat_cookies.SimpleCookie(cookie)
 
     def _apply_first_set_cookie_header(self, url_handle, cookie):
         """
