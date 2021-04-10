@@ -297,9 +297,6 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
     --break-on-reject                Stop the download process when encountering
                                      a file that has been filtered out
     --no-download-archive            Do not use archive file (default)
-    --include-ads                    Download advertisements as well
-                                     (experimental)
-    --no-include-ads                 Do not download advertisements (default)
 
 ## Download Options:
     -N, --concurrent-fragments N     Number of fragments to download
@@ -337,10 +334,6 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
     --playlist-random                Download playlist videos in random order
     --xattr-set-filesize             Set file xattribute ytdl.filesize with
                                      expected file size
-    --hls-prefer-native              Use the native HLS downloader instead of
-                                     ffmpeg
-    --hls-prefer-ffmpeg              Use ffmpeg instead of the native HLS
-                                     downloader
     --hls-use-mpegts                 Use the mpegts container for HLS videos;
                                      allowing some players to play the video
                                      while downloading, and reducing the chance
@@ -350,10 +343,19 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
     --no-hls-use-mpegts              Do not use the mpegts container for HLS
                                      videos. This is default when not
                                      downloading live streams
-    --external-downloader NAME       Name or path of the external downloader to
-                                     use. Currently supports aria2c, avconv,
-                                     axel, curl, ffmpeg, httpie, wget
-                                     (Recommended: aria2c)
+    --downloader [PROTO:]NAME        Name or path of the external downloader to
+                                     use (optionally) prefixed by the protocols
+                                     (http, ftp, m3u8, dash, rstp, rtmp, mms) to
+                                     use it for. Currently supports native,
+                                     aria2c, avconv, axel, curl, ffmpeg, httpie,
+                                     wget (Recommended: aria2c). You can use
+                                     this option multiple times to set different
+                                     downloaders for different protocols. For
+                                     example, --downloader aria2c --downloader
+                                     "dash,m3u8:native" will use aria2c for
+                                     http/ftp downloads, and the native
+                                     downloader for dash/m3u8 downloads
+                                     (Alias: --external-downloader)
     --downloader-args NAME:ARGS      Give these arguments to the external
                                      downloader. Specify the downloader name and
                                      the arguments separated by a colon ":". You
@@ -365,7 +367,7 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
                                      stdin), one URL per line. Lines starting
                                      with '#', ';' or ']' are considered as
                                      comments and ignored
-    -P, --paths TYPE:PATH            The paths where the files should be
+    -P, --paths TYPES:PATH           The paths where the files should be
                                      downloaded. Specify the type of file and
                                      the path separated by a colon ":". All the
                                      same types as --output are supported.
@@ -376,7 +378,7 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
                                      home path after download is finished. This
                                      option is ignored if --output is an
                                      absolute path
-    -o, --output [TYPE:]TEMPLATE     Output filename template, see "OUTPUT
+    -o, --output [TYPES:]TEMPLATE    Output filename template; see "OUTPUT
                                      TEMPLATE" for details
     --output-na-placeholder TEXT     Placeholder value for unavailable meta
                                      fields in output filename template
@@ -553,7 +555,6 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
                                      into a single file
     --no-audio-multistreams          Only one audio stream is downloaded for
                                      each output file (default)
-    --all-formats                    Download all available video formats
     --prefer-free-formats            Prefer video formats with free containers
                                      over non-free ones of same quality. Use
                                      with "-S ext" to strictly prefer free
@@ -979,8 +980,9 @@ You can also use a file extension (currently `3gp`, `aac`, `flv`, `m4a`, `mp3`, 
 You can also use special names to select particular edge case formats:
 
  - `all`: Select all formats
- - `b*`, `best*`: Select the best quality format irrespective of whether it contains video or audio.
- - `w*`, `worst*`: Select the worst quality format irrespective of whether it contains video or audio.
+ - `mergeall`: Select and merge all formats (Must be used with `--audio-multistreams`, `--video-multistreams` or both)
+ - `b*`, `best*`: Select the best quality format irrespective of whether it contains video or audio
+ - `w*`, `worst*`: Select the worst quality format irrespective of whether it contains video or audio
  - `b`, `best`: Select the best quality format that contains both video and audio. Equivalent to `best*[vcodec!=none][acodec!=none]`
  - `w`, `worst`: Select the worst quality format that contains both video and audio. Equivalent to `worst*[vcodec!=none][acodec!=none]`
  - `bv`, `bestvideo`: Select the best quality video-only format. Equivalent to `best*[acodec=none]`
@@ -1094,10 +1096,17 @@ $ yt-dlp
 # by default, bestvideo and bestaudio will have the same file name.
 $ yt-dlp -f 'bv,ba' -o '%(title)s.f%(format_id)s.%(ext)s'
 
+# Download and merge the best format that has a video stream,
+# and all audio-only formats into one file
+$ yt-dlp -f 'bv*+mergeall[vcodec=none]' --audio-multistreams
+
+# Download and merge the best format that has a video stream,
+# and the best 2 audio-only formats into one file
+$ yt-dlp -f 'bv*+ba+ba.2' --audio-multistreams
 
 
 # The following examples show the old method (without -S) of format selection
-# and how to use -S to achieve a similar but better result
+# and how to use -S to achieve a similar but (generally) better result
 
 # Download the worst video available (old method)
 $ yt-dlp -f 'wv*+wa/w'
@@ -1178,7 +1187,7 @@ $ yt-dlp -S '+codec:h264'
 $ yt-dlp -f '((bv*[fps>30]/bv*)[height<=720]/(wv*[fps>30]/wv*)) + ba / (b[fps>30]/b)[height<=720]/(w[fps>30]/w)'
 
 # Download the video with the largest resolution no better than 720p,
-# or the video with the smallest resolution available  if there is no such video,
+# or the video with the smallest resolution available if there is no such video,
 # prefering larger framerate for formats with the same resolution
 $ yt-dlp -S 'res:720,fps'
 
@@ -1232,13 +1241,18 @@ These are all the deprecated options and the current alternative to achieve the 
     -A, --auto-number                -o "%(autonumber)s-%(id)s.%(ext)s"
     -t, --title                      -o "%(title)s-%(id)s.%(ext)s"
     -l, --literal                    -o accepts literal names
+    --all-formats                    -f all
     --autonumber-size NUMBER         Use string formatting. Eg: %(autonumber)03d
     --metadata-from-title FORMAT     --parse-metadata "%(title)s:FORMAT"
     --prefer-avconv                  avconv is no longer officially supported (Alias: --no-prefer-ffmpeg)
     --prefer-ffmpeg                  Default (Alias: --no-prefer-avconv)
+    --hls-prefer-native              --downloader "m3u8:native"
+    --hls-prefer-ffmpeg              --downloader "m3u8:ffmpeg"
     --avconv-location                avconv is no longer officially supported
     -C, --call-home                  Not implemented
     --no-call-home                   Default
+    --include-ads                    Not implemented
+    --no-include-ads                 Default
     --write-srt                      --write-subs
     --no-write-srt                   --no-write-subs
     --srt-lang LANGS                 --sub-langs LANGS

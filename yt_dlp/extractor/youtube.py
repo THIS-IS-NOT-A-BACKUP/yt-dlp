@@ -1248,6 +1248,23 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             'url': 'https://www.youtube.com/watch?v=nGC3D_FkCmg',
             'only_matching': True,
         },
+        {
+            # restricted location, https://github.com/ytdl-org/youtube-dl/issues/28685
+            'url': 'cBvYw8_A0vQ',
+            'info_dict': {
+                'id': 'cBvYw8_A0vQ',
+                'ext': 'mp4',
+                'title': '4K Ueno Okachimachi  Street  Scenes  上野御徒町歩き',
+                'description': 'md5:ea770e474b7cd6722b4c95b833c03630',
+                'upload_date': '20201120',
+                'uploader': 'Walk around Japan',
+                'uploader_id': 'UC3o_t8PzBmXf5S9b7GLx1Mw',
+                'uploader_url': r're:https?://(?:www\.)?youtube\.com/channel/UC3o_t8PzBmXf5S9b7GLx1Mw',
+            },
+            'params': {
+                'skip_download': True,
+            },
+        },
     ]
 
     def __init__(self, *args, **kwargs):
@@ -1817,7 +1834,13 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         def get_text(x):
             if not x:
                 return
-            return x.get('simpleText') or ''.join([r['text'] for r in x['runs']])
+            text = x.get('simpleText')
+            if text and isinstance(text, compat_str):
+                return text
+            runs = x.get('runs')
+            if not isinstance(runs, list):
+                return
+            return ''.join([r['text'] for r in runs if isinstance(r.get('text'), compat_str)])
 
         search_meta = (
             lambda x: self._html_search_meta(x, webpage, default=None)) \
@@ -3222,25 +3245,26 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
                     alert_type = alert.get('type')
                     if not alert_type:
                         continue
-                    message = try_get(alert, lambda x: x['text']['simpleText'], compat_str)
+                    message = try_get(alert, lambda x: x['text']['simpleText'], compat_str) or ''
                     if message:
                         yield alert_type, message
                     for run in try_get(alert, lambda x: x['text']['runs'], list) or []:
-                        message = try_get(run, lambda x: x['text'], compat_str)
-                        if message:
-                            yield alert_type, message
+                        message += try_get(run, lambda x: x['text'], compat_str)
+                    if message:
+                        yield alert_type, message
 
-        err_msg = None
+        errors = []
+        warnings = []
         for alert_type, alert_message in _real_extract_alerts():
             if alert_type.lower() == 'error':
-                if err_msg:
-                    self._downloader.report_warning('YouTube said: %s - %s' % ('ERROR', err_msg))
-                err_msg = alert_message
+                errors.append([alert_type, alert_message])
             else:
-                self._downloader.report_warning('YouTube said: %s - %s' % (alert_type, alert_message))
+                warnings.append([alert_type, alert_message])
 
-        if err_msg:
-            raise ExtractorError('YouTube said: %s' % err_msg, expected=expected)
+        for alert_type, alert_message in (warnings + errors[:-1]):
+            self._downloader.report_warning('YouTube said: %s - %s' % (alert_type, alert_message))
+        if errors:
+            raise ExtractorError('YouTube said: %s' % errors[-1][1], expected=expected)
 
     def _extract_webpage(self, url, item_id):
         retries = self._downloader.params.get('extractor_retries', 3)
