@@ -22,5 +22,5 @@ jobs:
         with: 
           upstream_repo: ${{ env.UPSTREAM_URL }}
           upstream_branch: master
-          downstream_branch: $$ env.TEST }}
+          downstream_branch: $${{ env.TEST }}
           token: ${{ secrets.GITHUB_TOKEN }}
