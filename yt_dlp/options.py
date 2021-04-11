@@ -259,7 +259,7 @@ def parseOpts(overrideArguments=None):
         help='Make all connections via IPv6',
     )
 
-    geo = optparse.OptionGroup(parser, 'Geo Restriction')
+    geo = optparse.OptionGroup(parser, 'Geo-restriction')
     geo.add_option(
         '--geo-verification-proxy',
         dest='geo_verification_proxy', default=None, metavar='URL',
@@ -429,21 +429,19 @@ def parseOpts(overrideArguments=None):
         '--video-password',
         dest='videopassword', metavar='PASSWORD',
         help='Video password (vimeo, youku)')
-
-    adobe_pass = optparse.OptionGroup(parser, 'Adobe Pass Options')
-    adobe_pass.add_option(
+    authentication.add_option(
         '--ap-mso',
         dest='ap_mso', metavar='MSO',
         help='Adobe Pass multiple-system operator (TV provider) identifier, use --ap-list-mso for a list of available MSOs')
-    adobe_pass.add_option(
+    authentication.add_option(
         '--ap-username',
         dest='ap_username', metavar='USERNAME',
         help='Multiple-system operator account login')
-    adobe_pass.add_option(
+    authentication.add_option(
         '--ap-password',
         dest='ap_password', metavar='PASSWORD',
         help='Multiple-system operator account password. If this option is left out, yt-dlp will ask interactively')
-    adobe_pass.add_option(
+    authentication.add_option(
         '--ap-list-mso',
         action='store_true', dest='ap_list_mso', default=False,
         help='List all supported multiple-system operators')
@@ -569,7 +567,7 @@ def parseOpts(overrideArguments=None):
     downloader.add_option(
         '-N', '--concurrent-fragments',
         dest='concurrent_fragment_downloads', metavar='N', default=1, type=int,
-        help='Number of fragments to download concurrently (default is %default)')
+        help='Number of fragments of a dash/hlsnative video that should be download concurrently (default is %default)')
     downloader.add_option(
         '-r', '--limit-rate', '--rate-limit',
         dest='ratelimit', metavar='RATE',
@@ -1037,7 +1035,7 @@ def parseOpts(overrideArguments=None):
         action='store_true', dest='rm_cachedir',
         help='Delete all filesystem cache files')
 
-    thumbnail = optparse.OptionGroup(parser, 'Thumbnail Images')
+    thumbnail = optparse.OptionGroup(parser, 'Thumbnail Options')
     thumbnail.add_option(
         '--write-thumbnail',
         action='store_true', dest='writethumbnail', default=False,
@@ -1109,10 +1107,11 @@ def parseOpts(overrideArguments=None):
         help=(
             'Give these arguments to the postprocessors. '
             'Specify the postprocessor/executable name and the arguments separated by a colon ":" '
-            'to give the argument to the specified postprocessor/executable. Supported postprocessors are: '
-            'SponSkrub, ExtractAudio, VideoRemuxer, VideoConvertor, EmbedSubtitle, Metadata, Merger, '
-            'FixupStretched, FixupM4a, FixupM3u8, SubtitlesConvertor, EmbedThumbnail and SplitChapters. '
-            'The supported executables are: SponSkrub, FFmpeg, FFprobe, and AtomicParsley. '
+            'to give the argument to the specified postprocessor/executable. Supported PP are: '
+            'Merger, ExtractAudio, SplitChapters, Metadata, EmbedSubtitle, EmbedThumbnail, '
+            'SubtitlesConvertor, ThumbnailsConvertor, VideoRemuxer, VideoConvertor, '
+            'SponSkrub, FixupStretched, FixupM4a and FixupM3u8. '
+            'The supported executables are: AtomicParsley, FFmpeg, FFprobe, and SponSkrub. '
             'You can also specify "PP+EXE:ARGS" to give the arguments to the specified executable '
             'only when being used by the specified postprocessor. Additionally, for ffmpeg/ffprobe, '
             '"_i"/"_o" can be appended to the prefix optionally followed by a number to pass the argument '
@@ -1204,6 +1203,10 @@ def parseOpts(overrideArguments=None):
         '--convert-subs', '--convert-sub', '--convert-subtitles',
         metavar='FORMAT', dest='convertsubtitles', default=None,
         help='Convert the subtitles to another format (currently supported: srt|ass|vtt|lrc) (Alias: --convert-subtitles)')
+    postproc.add_option(
+        '--convert-thumbnails',
+        metavar='FORMAT', dest='convertthumbnails', default=None,
+        help='Convert the thumbnails to another format (currently supported: jpg)')
     postproc.add_option(
         '--split-chapters', '--split-tracks',
         dest='split_chapters', action='store_true', default=False,
@@ -1305,7 +1308,6 @@ def parseOpts(overrideArguments=None):
     parser.add_option_group(video_format)
     parser.add_option_group(subtitles)
     parser.add_option_group(authentication)
-    parser.add_option_group(adobe_pass)
     parser.add_option_group(postproc)
     parser.add_option_group(sponskrub)
     parser.add_option_group(extractor)
