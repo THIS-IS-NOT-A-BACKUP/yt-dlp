@@ -5,6 +5,7 @@ name: Sync Upstream
 env:
   UPSTREAM_URL: "https://github.com/yt-dlp/yt-dlp.git"
   UPSTREAM_BRANCH: "master"
+  TEST: ""
 # Controls when the action will run.
 on:
   schedule:
@@ -17,7 +18,9 @@ jobs:
     
     steps:
       - name: GitHub Sync to Upstream Repository
-        uses: dabreadman/sync-upstream-repo@v0.1.2.b.t.5
+        uses: dabreadman/sync-upstream-repo@v0.1.2.b.t.8
         with: 
           upstream_repo: ${{ env.UPSTREAM_URL }}
+          upstream_branch: master
+          downstream_branch: $$ env.TEST }}
           token: ${{ secrets.GITHUB_TOKEN }}
