@@ -336,14 +336,19 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
 
     @staticmethod
     def _extract_account_syncid(data):
-        """Extract syncId required to download private playlists of secondary channels"""
-        sync_ids = (
-            try_get(data, lambda x: x['responseContext']['mainAppWebResponseContext']['datasyncId'], compat_str)
-            or '').split("||")
+        """
+        Extract syncId required to download private playlists of secondary channels
+        @param data Either response or ytcfg
+        """
+        sync_ids = (try_get(
+            data, (lambda x: x['responseContext']['mainAppWebResponseContext']['datasyncId'],
+                   lambda x: x['DATASYNC_ID']), compat_str) or '').split("||")
         if len(sync_ids) >= 2 and sync_ids[1]:
             # datasyncid is of the form "channel_syncid||user_syncid" for secondary channel
             # and just "user_syncid||" for primary channel. We only want the channel_syncid
             return sync_ids[0]
+        # ytcfg includes channel_syncid if on secondary channel
+        return data.get('DELEGATED_SESSION_ID')
 
     def _extract_ytcfg(self, video_id, webpage):
         return self._parse_json(
@@ -2074,8 +2079,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 for m in re.finditer(self._meta_regex('og:video:tag'), webpage)]
         for keyword in keywords:
             if keyword.startswith('yt:stretch='):
-                w, h = keyword.split('=')[1].split(':')
-                w, h = int(w), int(h)
+                stretch_ratio = map(
+                    lambda x: int_or_none(x, default=0),
+                    keyword.split('=')[1].split(':'))
+                w, h = (list(stretch_ratio) + [0])[:2]
                 if w > 0 and h > 0:
                     ratio = w / h
                     for f in formats:
