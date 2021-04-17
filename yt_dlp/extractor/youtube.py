@@ -29,6 +29,7 @@ from ..utils import (
     clean_html,
     dict_get,
     datetime_from_str,
+    error_to_compat_str,
     ExtractorError,
     format_field,
     float_or_none,
@@ -50,6 +51,10 @@ from ..utils import (
     urlencode_postdata,
     urljoin
 )
+
+
+def parse_qs(url):
+    return compat_urlparse.parse_qs(compat_urlparse.urlparse(url).query)
 
 
 class YoutubeBaseInfoExtractor(InfoExtractor):
@@ -127,7 +132,7 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
                 })
 
         def warn(message):
-            self._downloader.report_warning(message)
+            self.report_warning(message)
 
         lookup_req = [
             username,
@@ -437,14 +442,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         r'(?:(?:www|dev)\.)?invidio\.us',
         # Invidious instances taken from https://github.com/iv-org/documentation/blob/master/Invidious-Instances.md
         r'(?:www\.)?invidious\.pussthecat\.org',
-        r'(?:www\.)?invidious\.048596\.xyz',
         r'(?:www\.)?invidious\.zee\.li',
-        r'(?:www\.)?vid\.puffyan\.us',
         r'(?:(?:www|au)\.)?ytprivate\.com',
         r'(?:www\.)?invidious\.namazso\.eu',
         r'(?:www\.)?invidious\.ethibox\.fr',
-        r'(?:www\.)?inv\.skyn3t\.in',
-        r'(?:www\.)?invidious\.himiko\.cloud',
         r'(?:www\.)?w6ijuptxiku4xpnnaetxvnkc5vqcdu7mgns2u77qefoixi63vbvnpnqd\.onion',
         r'(?:www\.)?kbjggqkzv65ivcqj6bumvp337z6264huv5kpkwuv6gu5yjiskvan7fad\.onion',
         r'(?:www\.)?invidious\.3o7z6yfxhbw7n3za4rss6l434kmv55cgw2vuziwuigpwegswvwzqipyd\.onion',
@@ -453,25 +454,32 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         r'(?:(?:www|no)\.)?invidiou\.sh',
         r'(?:(?:www|fi)\.)?invidious\.snopyta\.org',
         r'(?:www\.)?invidious\.kabi\.tk',
-        r'(?:www\.)?invidious\.13ad\.de',
         r'(?:www\.)?invidious\.mastodon\.host',
         r'(?:www\.)?invidious\.zapashcanon\.fr',
         r'(?:www\.)?invidious\.kavin\.rocks',
+        r'(?:www\.)?invidious\.tinfoil-hat\.net',
+        r'(?:www\.)?invidious\.himiko\.cloud',
+        r'(?:www\.)?invidious\.reallyancient\.tech',
         r'(?:www\.)?invidious\.tube',
         r'(?:www\.)?invidiou\.site',
         r'(?:www\.)?invidious\.site',
         r'(?:www\.)?invidious\.xyz',
         r'(?:www\.)?invidious\.nixnet\.xyz',
+        r'(?:www\.)?invidious\.048596\.xyz',
         r'(?:www\.)?invidious\.drycat\.fr',
+        r'(?:www\.)?inv\.skyn3t\.in',
         r'(?:www\.)?tube\.poal\.co',
         r'(?:www\.)?tube\.connect\.cafe',
         r'(?:www\.)?vid\.wxzm\.sx',
         r'(?:www\.)?vid\.mint\.lgbt',
+        r'(?:www\.)?vid\.puffyan\.us',
         r'(?:www\.)?yewtu\.be',
         r'(?:www\.)?yt\.elukerio\.org',
         r'(?:www\.)?yt\.lelux\.fi',
         r'(?:www\.)?invidious\.ggc-project\.de',
         r'(?:www\.)?yt\.maisputain\.ovh',
+        r'(?:www\.)?ytprivate\.com',
+        r'(?:www\.)?invidious\.13ad\.de',
         r'(?:www\.)?invidious\.toot\.koeln',
         r'(?:www\.)?invidious\.fdn\.fr',
         r'(?:www\.)?watch\.nettohikari\.com',
@@ -514,16 +522,9 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                          |(?:www\.)?cleanvideosearch\.com/media/action/yt/watch\?videoId=
                          )
                      )?                                                       # all until now is optional -> you can pass the naked ID
-                     (?P<id>[0-9A-Za-z_-]{11})                                      # here is it! the YouTube video ID
-                     (?!.*?\blist=
-                        (?:
-                            %(playlist_id)s|                                  # combined list/video URLs are handled by the playlist IE
-                            WL                                                # WL are handled by the watch later IE
-                        )
-                     )
+                     (?P<id>[0-9A-Za-z_-]{11})                                # here is it! the YouTube video ID
                      (?(1).+)?                                                # if we found the ID, everything can follow
                      $""" % {
-        'playlist_id': YoutubeBaseInfoExtractor._PLAYLIST_ID_RE,
         'invidious': '|'.join(_INVIDIOUS_SITES),
     }
     _PLAYER_INFO_RE = (
@@ -1009,6 +1010,11 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             'skip': 'This video does not exist.',
         },
         {
+            # Video with incomplete 'yt:stretch=16:'
+            'url': 'https://www.youtube.com/watch?v=FRhJzUSJbGI',
+            'only_matching': True,
+        },
+        {
             # Video licensed under Creative Commons
             'url': 'https://www.youtube.com/watch?v=M4gD1WSo5mA',
             'info_dict': {
@@ -1302,6 +1308,13 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             },
         },
     ]
+
+    @classmethod
+    def suitable(cls, url):
+        qs = parse_qs(url)
+        if qs.get('list', [None])[0]:
+            return False
+        return super(YoutubeIE, cls).suitable(url)
 
     def __init__(self, *args, **kwargs):
         super(YoutubeIE, self).__init__(*args, **kwargs)
@@ -1738,7 +1751,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     # See: https://github.com/ytdl-org/youtube-dl/issues/28194
                     last_error = 'Incomplete data received'
                     if count >= retries:
-                        self._downloader.report_error(last_error)
+                        raise ExtractorError(last_error)
 
             if not response:
                 break
@@ -2049,7 +2062,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
         if not formats:
             if not self._downloader.params.get('allow_unplayable_formats') and streaming_data.get('licenseInfos'):
-                raise ExtractorError(
+                self.raise_no_formats(
                     'This video is DRM protected.', expected=True)
             pemr = try_get(
                 playability_status,
@@ -2064,11 +2077,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     if not countries:
                         regions_allowed = search_meta('regionsAllowed')
                         countries = regions_allowed.split(',') if regions_allowed else None
-                    self.raise_geo_restricted(
-                        subreason, countries)
+                    self.raise_geo_restricted(subreason, countries, metadata_available=True)
                 reason += '\n' + subreason
             if reason:
-                raise ExtractorError(reason, expected=True)
+                self.raise_no_formats(reason, expected=True)
 
         self._sort_formats(formats)
 
@@ -2079,15 +2091,16 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 for m in re.finditer(self._meta_regex('og:video:tag'), webpage)]
         for keyword in keywords:
             if keyword.startswith('yt:stretch='):
-                stretch_ratio = map(
-                    lambda x: int_or_none(x, default=0),
-                    keyword.split('=')[1].split(':'))
-                w, h = (list(stretch_ratio) + [0])[:2]
-                if w > 0 and h > 0:
-                    ratio = w / h
-                    for f in formats:
-                        if f.get('vcodec') != 'none':
-                            f['stretched_ratio'] = ratio
+                mobj = re.search(r'(\d+)\s*:\s*(\d+)', keyword)
+                if mobj:
+                    # NB: float is intentional for forcing float division
+                    w, h = (float(v) for v in mobj.groups())
+                    if w > 0 and h > 0:
+                        ratio = w / h
+                        for f in formats:
+                            if f.get('vcodec') != 'none':
+                                f['stretched_ratio'] = ratio
+                        break
 
         thumbnails = []
         for container in (video_details, microformat):
@@ -2485,6 +2498,15 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
             'uploader': 'Игорь Клейнер',
         },
     }, {
+        # playlists, series
+        'url': 'https://www.youtube.com/c/3blue1brown/playlists?view=50&sort=dd&shelf_id=3',
+        'playlist_mincount': 5,
+        'info_dict': {
+            'id': 'UCYO_jab_esuFRV4b17AJtAw',
+            'title': '3Blue1Brown - Playlists',
+            'description': 'md5:e1384e8a133307dd10edee76e875d62f',
+        },
+    }, {
         # playlists, singlepage
         'url': 'https://www.youtube.com/user/ThirstForScience/playlists',
         'playlist_mincount': 4,
@@ -2629,6 +2651,29 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
         },
         'playlist_mincount': 21,
     }, {
+        'note': 'Playlist with "show unavailable videos" button',
+        'url': 'https://www.youtube.com/playlist?list=UUTYLiWFZy8xtPwxFwX9rV7Q',
+        'info_dict': {
+            'title': 'Uploads from Phim Siêu Nhân Nhật Bản',
+            'id': 'UUTYLiWFZy8xtPwxFwX9rV7Q',
+            'uploader': 'Phim Siêu Nhân Nhật Bản',
+            'uploader_id': 'UCTYLiWFZy8xtPwxFwX9rV7Q',
+        },
+        'playlist_mincount': 1400,
+        'expected_warnings': [
+            'YouTube said: INFO - Unavailable videos are hidden',
+        ]
+    }, {
+        'note': 'Playlist with unavailable videos in a later page',
+        'url': 'https://www.youtube.com/playlist?list=UU8l9frL61Yl5KFOl87nIm2w',
+        'info_dict': {
+            'title': 'Uploads from BlankTV',
+            'id': 'UU8l9frL61Yl5KFOl87nIm2w',
+            'uploader': 'BlankTV',
+            'uploader_id': 'UC8l9frL61Yl5KFOl87nIm2w',
+        },
+        'playlist_mincount': 20000,
+    }, {
         # https://github.com/ytdl-org/youtube-dl/issues/21844
         'url': 'https://www.youtube.com/playlist?list=PLzH6n4zXuckpfMu_4Ff8E7Z1behQks5ba',
         'info_dict': {
@@ -2767,6 +2812,9 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
             'title': '#cctv9',
         },
         'playlist_mincount': 350,
+    }, {
+        'url': 'https://www.youtube.com/watch?list=PLW4dVinRY435CBE_JD3t-0SRXKfnZHS1P&feature=youtu.be&v=M9cJMXmQ_ZU',
+        'only_matching': True,
     }]
 
     @classmethod
@@ -2790,14 +2838,16 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
     @staticmethod
     def _extract_basic_item_renderer(item):
         # Modified from _extract_grid_item_renderer
-        known_renderers = (
-            'playlistRenderer', 'videoRenderer', 'channelRenderer',
-            'gridPlaylistRenderer', 'gridVideoRenderer', 'gridChannelRenderer'
+        known_basic_renderers = (
+            'playlistRenderer', 'videoRenderer', 'channelRenderer', 'showRenderer'
         )
         for key, renderer in item.items():
-            if key not in known_renderers:
+            if not isinstance(renderer, dict):
                 continue
-            return renderer
+            elif key in known_basic_renderers:
+                return renderer
+            elif key.startswith('grid') and key.endswith('Renderer'):
+                return renderer
 
     def _grid_entries(self, grid_renderer):
         for item in grid_renderer['items']:
@@ -2807,7 +2857,8 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
             if not isinstance(renderer, dict):
                 continue
             title = try_get(
-                renderer, lambda x: x['title']['runs'][0]['text'], compat_str)
+                renderer, (lambda x: x['title']['runs'][0]['text'],
+                           lambda x: x['title']['simpleText']), compat_str)
             # playlist
             playlist_id = renderer.get('playlistId')
             if playlist_id:
@@ -2815,10 +2866,12 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
                     'https://www.youtube.com/playlist?list=%s' % playlist_id,
                     ie=YoutubeTabIE.ie_key(), video_id=playlist_id,
                     video_title=title)
+                continue
             # video
             video_id = renderer.get('videoId')
             if video_id:
                 yield self._extract_video(renderer)
+                continue
             # channel
             channel_id = renderer.get('channelId')
             if channel_id:
@@ -2827,6 +2880,17 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
                 yield self.url_result(
                     'https://www.youtube.com/channel/%s' % channel_id,
                     ie=YoutubeTabIE.ie_key(), video_title=title)
+                continue
+            # generic endpoint URL support
+            ep_url = urljoin('https://www.youtube.com/', try_get(
+                renderer, lambda x: x['navigationEndpoint']['commandMetadata']['webCommandMetadata']['url'],
+                compat_str))
+            if ep_url:
+                for ie in (YoutubeTabIE, YoutubePlaylistIE, YoutubeIE):
+                    if ie.suitable(ep_url):
+                        yield self.url_result(
+                            ep_url, ie=ie.ie_key(), video_id=ie._match_id(ep_url), video_title=title)
+                        break
 
     def _shelf_entries_from_content(self, shelf_renderer):
         content = shelf_renderer.get('content')
@@ -3289,12 +3353,56 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
                 warnings.append([alert_type, alert_message])
 
         for alert_type, alert_message in (warnings + errors[:-1]):
-            self._downloader.report_warning('YouTube said: %s - %s' % (alert_type, alert_message))
+            self.report_warning('YouTube said: %s - %s' % (alert_type, alert_message))
         if errors:
             raise ExtractorError('YouTube said: %s' % errors[-1][1], expected=expected)
 
+    def _reload_with_unavailable_videos(self, item_id, data, webpage):
+        """
+        Get playlist with unavailable videos if the 'show unavailable videos' button exists.
+        """
+        sidebar_renderer = try_get(
+            data, lambda x: x['sidebar']['playlistSidebarRenderer']['items'], list)
+        if not sidebar_renderer:
+            return
+        browse_id = params = None
+        for item in sidebar_renderer:
+            if not isinstance(item, dict):
+                continue
+            renderer = item.get('playlistSidebarPrimaryInfoRenderer')
+            menu_renderer = try_get(
+                renderer, lambda x: x['menu']['menuRenderer']['items'], list) or []
+            for menu_item in menu_renderer:
+                if not isinstance(menu_item, dict):
+                    continue
+                nav_item_renderer = menu_item.get('menuNavigationItemRenderer')
+                text = try_get(
+                    nav_item_renderer, lambda x: x['text']['simpleText'], compat_str)
+                if not text or text.lower() != 'show unavailable videos':
+                    continue
+                browse_endpoint = try_get(
+                    nav_item_renderer, lambda x: x['navigationEndpoint']['browseEndpoint'], dict) or {}
+                browse_id = browse_endpoint.get('browseId')
+                params = browse_endpoint.get('params')
+                break
+
+            ytcfg = self._extract_ytcfg(item_id, webpage)
+            headers = self._generate_api_headers(
+                ytcfg, account_syncid=self._extract_account_syncid(ytcfg),
+                identity_token=self._extract_identity_token(webpage, item_id=item_id),
+                visitor_data=try_get(
+                    self._extract_context(ytcfg), lambda x: x['client']['visitorData'], compat_str))
+            query = {
+                'params': params or 'wgYCCAA=',
+                'browseId': browse_id or 'VL%s' % item_id
+            }
+            return self._extract_response(
+                item_id=item_id, headers=headers, query=query,
+                check_get_keys='contents', fatal=False,
+                note='Downloading API JSON with unavailable videos')
+
     def _extract_response(self, item_id, query, note='Downloading API JSON', headers=None,
-                          ytcfg=None, check_get_keys=None, ep='browse'):
+                          ytcfg=None, check_get_keys=None, ep='browse', fatal=True):
         response = None
         last_error = None
         count = -1
@@ -3308,8 +3416,7 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
             try:
                 response = self._call_api(
                     ep=ep, fatal=True, headers=headers,
-                    video_id=item_id,
-                    query=query,
+                    video_id=item_id, query=query,
                     context=self._extract_context(ytcfg),
                     api_key=self._extract_api_key(ytcfg),
                     note='%s%s' % (note, ' (retry #%d)' % count if count else ''))
@@ -3320,7 +3427,12 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
                     last_error = 'HTTP Error %s' % e.cause.code
                     if count < retries:
                         continue
-                raise
+                if fatal:
+                    raise
+                else:
+                    self.report_warning(error_to_compat_str(e))
+                    return
+
             else:
                 # Youtube may send alerts if there was an issue with the continuation page
                 self._extract_alerts(response, expected=False)
@@ -3330,7 +3442,11 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
                 # See: https://github.com/ytdl-org/youtube-dl/issues/28194
                 last_error = 'Incomplete data received'
                 if count >= retries:
-                    self._downloader.report_error(last_error)
+                    if fatal:
+                        raise ExtractorError(last_error)
+                    else:
+                        self.report_warning(last_error)
+                        return
         return response
 
     def _extract_webpage(self, url, item_id):
@@ -3351,7 +3467,7 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
             if data.get('contents') or data.get('currentVideoEndpoint'):
                 break
             if count >= retries:
-                self._downloader.report_error(last_error)
+                raise ExtractorError(last_error)
         return webpage, data
 
     def _real_extract(self, url):
@@ -3363,13 +3479,13 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
         mobj = re.match(r'(?P<pre>%s)(?P<post>/?(?![^#?]).*$)' % self._VALID_URL, url)
         mobj = mobj.groupdict() if mobj else {}
         if mobj and not mobj.get('not_channel'):
-            self._downloader.report_warning(
+            self.report_warning(
                 'A channel/user page was given. All the channel\'s videos will be downloaded. '
                 'To download only the videos in the home page, add a "/featured" to the URL')
             url = '%s/videos%s' % (mobj.get('pre'), mobj.get('post') or '')
 
         # Handle both video/playlist URLs
-        qs = compat_urlparse.parse_qs(compat_urlparse.urlparse(url).query)
+        qs = parse_qs(url)
         video_id = qs.get('v', [None])[0]
         playlist_id = qs.get('list', [None])[0]
 
@@ -3378,7 +3494,7 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
                 # If there is neither video or playlist ids,
                 # youtube redirects to home page, which is undesirable
                 raise ExtractorError('Unable to recognize tab page')
-            self._downloader.report_warning('A video URL was given without video ID. Trying to download playlist %s' % playlist_id)
+            self.report_warning('A video URL was given without video ID. Trying to download playlist %s' % playlist_id)
             url = 'https://www.youtube.com/playlist?list=%s' % playlist_id
 
         if video_id and playlist_id:
@@ -3388,6 +3504,9 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
             self.to_screen('Downloading playlist %s; add --no-playlist to just download video %s' % (playlist_id, video_id))
 
         webpage, data = self._extract_webpage(url, item_id)
+
+        # YouTube sometimes provides a button to reload playlist with unavailable videos.
+        data = self._reload_with_unavailable_videos(item_id, data, webpage) or data
 
         tabs = try_get(
             data, lambda x: x['contents']['twoColumnBrowseResultsRenderer']['tabs'], list)
@@ -3403,7 +3522,7 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
             data, lambda x: x['currentVideoEndpoint']['watchEndpoint']['videoId'],
             compat_str) or video_id
         if video_id:
-            self._downloader.report_warning('Unable to recognize playlist. Downloading just video %s' % video_id)
+            self.report_warning('Unable to recognize playlist. Downloading just video %s' % video_id)
             return self.url_result(video_id, ie=YoutubeIE.ie_key(), video_id=video_id)
 
         raise ExtractorError('Unable to recognize tab page')
@@ -3472,12 +3591,16 @@ class YoutubePlaylistIE(InfoExtractor):
 
     @classmethod
     def suitable(cls, url):
-        return False if YoutubeTabIE.suitable(url) else super(
-            YoutubePlaylistIE, cls).suitable(url)
+        if YoutubeTabIE.suitable(url):
+            return False
+        qs = parse_qs(url)
+        if qs.get('v', [None])[0]:
+            return False
+        return super(YoutubePlaylistIE, cls).suitable(url)
 
     def _real_extract(self, url):
         playlist_id = self._match_id(url)
-        qs = compat_urlparse.parse_qs(compat_urlparse.urlparse(url).query)
+        qs = parse_qs(url)
         if not qs:
             qs = {'list': playlist_id}
         return self.url_result(

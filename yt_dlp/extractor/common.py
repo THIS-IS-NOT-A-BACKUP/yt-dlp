@@ -683,7 +683,7 @@ class InfoExtractor(object):
             if fatal:
                 raise ExtractorError(errmsg, sys.exc_info()[2], cause=err)
             else:
-                self._downloader.report_warning(errmsg)
+                self.report_warning(errmsg)
                 return False
 
     def _download_webpage_handle(self, url_or_request, video_id, note=None, errnote=None, fatal=True, encoding=None, data=None, headers={}, query={}, expected_status=None):
@@ -968,15 +968,27 @@ class InfoExtractor(object):
         """Report attempt to log in."""
         self.to_screen('Logging in')
 
-    @staticmethod
-    def raise_login_required(msg='This video is only available for registered users'):
+    def raise_login_required(
+            self, msg='This video is only available for registered users', metadata_available=False):
+        if metadata_available and self._downloader.params.get('ignore_no_formats_error'):
+            self.report_warning(msg)
         raise ExtractorError(
-            '%s. Use --username and --password or --netrc to provide account credentials.' % msg,
+            '%s. Use --cookies, --username and --password or --netrc to provide account credentials' % msg,
             expected=True)
 
-    @staticmethod
-    def raise_geo_restricted(msg='This video is not available from your location due to geo restriction', countries=None):
-        raise GeoRestrictedError(msg, countries=countries)
+    def raise_geo_restricted(
+            self, msg='This video is not available from your location due to geo restriction',
+            countries=None, metadata_available=False):
+        if metadata_available and self._downloader.params.get('ignore_no_formats_error'):
+            self.report_warning(msg)
+        else:
+            raise GeoRestrictedError(msg, countries=countries)
+
+    def raise_no_formats(self, msg, expected=False, video_id=None):
+        if expected and self._downloader.params.get('ignore_no_formats_error'):
+            self.report_warning(msg, video_id)
+        else:
+            raise ExtractorError(msg, expected=expected, video_id=video_id)
 
     # Methods for following #608
     @staticmethod
@@ -1044,7 +1056,7 @@ class InfoExtractor(object):
         elif fatal:
             raise RegexNotFoundError('Unable to extract %s' % _name)
         else:
-            self._downloader.report_warning('unable to extract %s' % _name + bug_reports_message())
+            self.report_warning('unable to extract %s' % _name + bug_reports_message())
             return None
 
     def _html_search_regex(self, pattern, string, name, default=NO_DEFAULT, fatal=True, flags=0, group=None):
@@ -1072,7 +1084,7 @@ class InfoExtractor(object):
                     raise netrc.NetrcParseError(
                         'No authenticators for %s' % netrc_machine)
             except (IOError, netrc.NetrcParseError) as err:
-                self._downloader.report_warning(
+                self.report_warning(
                     'parsing .netrc: %s' % error_to_compat_str(err))
 
         return username, password
@@ -1247,7 +1259,7 @@ class InfoExtractor(object):
         elif fatal:
             raise RegexNotFoundError('Unable to extract JSON-LD')
         else:
-            self._downloader.report_warning('unable to extract JSON-LD %s' % bug_reports_message())
+            self.report_warning('unable to extract JSON-LD %s' % bug_reports_message())
             return {}
 
     def _json_ld(self, json_ld, video_id, fatal=True, expected_type=None):
@@ -1670,6 +1682,8 @@ class InfoExtractor(object):
 
     def _sort_formats(self, formats, field_preference=[]):
         if not formats:
+            if self._downloader.params.get('ignore_no_formats_error'):
+                return
             raise ExtractorError('No video formats found')
         format_sort = self.FormatSort()  # params and to_screen are taken from the downloader
         format_sort.evaluate_params(self._downloader.params, field_preference)
@@ -3203,7 +3217,7 @@ class InfoExtractor(object):
             if fatal:
                 raise ExtractorError(msg)
             else:
-                self._downloader.report_warning(msg)
+                self.report_warning(msg)
         return res
 
     def _float(self, v, name, fatal=False, **kwargs):
@@ -3213,7 +3227,7 @@ class InfoExtractor(object):
             if fatal:
                 raise ExtractorError(msg)
             else:
-                self._downloader.report_warning(msg)
+                self.report_warning(msg)
         return res
 
     def _set_cookie(self, domain, name, value, expire_time=None, port=None,
@@ -3389,7 +3403,7 @@ class SearchInfoExtractor(InfoExtractor):
             if n <= 0:
                 raise ExtractorError('invalid download number %s for query "%s"' % (n, query))
             elif n > self._MAX_RESULTS:
-                self._downloader.report_warning('%s returns max %i results (you requested %i)' % (self._SEARCH_KEY, self._MAX_RESULTS, n))
+                self.report_warning('%s returns max %i results (you requested %i)' % (self._SEARCH_KEY, self._MAX_RESULTS, n))
                 n = self._MAX_RESULTS
             return self._get_n_results(query, n)
 
