@@ -99,6 +99,7 @@ from .utils import (
     strftime_or_none,
     subtitles_filename,
     to_high_limit_path,
+    traverse_dict,
     UnavailableVideoError,
     url_basename,
     version_tuple,
@@ -214,6 +215,8 @@ class YoutubeDL(object):
     ignoreerrors:      Do not stop on download errors
                        (Default True when running yt-dlp,
                        but False when directly accessing YoutubeDL class)
+    skip_playlist_after_errors: Number of allowed failures until the rest of
+                       the playlist is skipped
     force_generic_extractor: Force downloader to use the generic extractor
     overwrites:        Overwrite all video and metadata files if True,
                        overwrite only non-video files if None
@@ -794,6 +797,7 @@ class YoutubeDL(object):
     def prepare_outtmpl(self, outtmpl, info_dict, sanitize=None):
         """ Make the template and info_dict suitable for substitution (outtmpl % info_dict)"""
         template_dict = dict(info_dict)
+        na = self.params.get('outtmpl_na_placeholder', 'NA')
 
         # duration_string
         template_dict['duration_string'] = (  # %(duration>%H-%M-%S)s is wrong if duration > 24hrs
@@ -819,18 +823,10 @@ class YoutubeDL(object):
             elif template_dict.get('width'):
                 template_dict['resolution'] = '%dx?' % template_dict['width']
 
-        if sanitize is None:
-            sanitize = lambda k, v: v
-        template_dict = dict((k, v if isinstance(v, compat_numeric_types) else sanitize(k, v))
-                             for k, v in template_dict.items()
-                             if v is not None and not isinstance(v, (list, tuple, dict)))
-        na = self.params.get('outtmpl_na_placeholder', 'NA')
-        template_dict = collections.defaultdict(lambda: na, template_dict)
-
         # For fields playlist_index and autonumber convert all occurrences
         # of %(field)s to %(field)0Nd for backward compatibility
         field_size_compat_map = {
-            'playlist_index': len(str(template_dict['n_entries'])),
+            'playlist_index': len(str(template_dict.get('n_entries', na))),
             'autonumber': autonumber_size,
         }
         FIELD_SIZE_COMPAT_RE = r'(?<!%)%\((?P<field>autonumber|playlist_index)\)s'
@@ -842,32 +838,51 @@ class YoutubeDL(object):
                 outtmpl)
 
         numeric_fields = list(self._NUMERIC_FIELDS)
+        if sanitize is None:
+            sanitize = lambda k, v: v
 
-        # Format date
-        FORMAT_DATE_RE = FORMAT_RE.format(r'(?P<key>(?P<field>\w+)>(?P<format>.+?))')
-        for mobj in re.finditer(FORMAT_DATE_RE, outtmpl):
-            conv_type, field, frmt, key = mobj.group('type', 'field', 'format', 'key')
-            if key in template_dict:
-                continue
-            value = strftime_or_none(template_dict.get(field), frmt, na)
-            if conv_type in 'crs':  # string
-                value = sanitize(field, value)
-            else:  # number
-                numeric_fields.append(key)
-                value = float_or_none(value, default=None)
+        # Internal Formatting = name.key1.key2+number>strf
+        INTERNAL_FORMAT_RE = FORMAT_RE.format(
+            r'''(?P<final_key>
+                        (?P<fields>\w+(?:\.[-\w]+)*)
+                        (?:\+(?P<add>-?\d+(?:\.\d+)?))?
+                        (?:>(?P<strf_format>.+?))?
+            )''')
+        for mobj in re.finditer(INTERNAL_FORMAT_RE, outtmpl):
+            mobj = mobj.groupdict()
+            # Object traversal
+            fields = mobj['fields'].split('.')
+            final_key = mobj['final_key']
+            value = traverse_dict(template_dict, fields)
+            # Offset the value
+            if mobj['add']:
+                value = float_or_none(value)
+                if value is not None:
+                    value = value + float(mobj['add'])
+            # Datetime formatting
+            if mobj['strf_format']:
+                value = strftime_or_none(value, mobj['strf_format'])
+            if mobj['type'] in 'crs' and value is not None:  # string
+                value = sanitize('%{}'.format(mobj['type']) % fields[-1], value)
+            else:  # numeric
+                numeric_fields.append(final_key)
+                value = float_or_none(value)
             if value is not None:
-                template_dict[key] = value
+                template_dict[final_key] = value
 
         # Missing numeric fields used together with integer presentation types
         # in format specification will break the argument substitution since
         # string NA placeholder is returned for missing fields. We will patch
         # output template for missing fields to meet string presentation type.
         for numeric_field in numeric_fields:
-            if numeric_field not in template_dict:
+            if template_dict.get(numeric_field) is None:
                 outtmpl = re.sub(
                     FORMAT_RE.format(re.escape(numeric_field)),
                     r'%({0})s'.format(numeric_field), outtmpl)
 
+        template_dict = collections.defaultdict(lambda: na, (
+            (k, v if isinstance(v, compat_numeric_types) else sanitize(k, v))
+            for k, v in template_dict.items() if v is not None))
         return outtmpl, template_dict
 
     def _prepare_filename(self, info_dict, tmpl_type='default'):
@@ -1327,6 +1342,8 @@ class YoutubeDL(object):
         x_forwarded_for = ie_result.get('__x_forwarded_for_ip')
 
         self.to_screen('[%s] playlist %s: %s' % (ie_result['extractor'], playlist, msg))
+        failures = 0
+        max_failures = self.params.get('skip_playlist_after_errors') or float('inf')
         for i, entry in enumerate(entries, 1):
             self.to_screen('[download] Downloading video %s of %s' % (i, n_entries))
             # This __x_forwarded_for_ip thing is a bit ugly but requires
@@ -1351,6 +1368,12 @@ class YoutubeDL(object):
                 continue
 
             entry_result = self.__process_iterable_entry(entry, download, extra)
+            if not entry_result:
+                failures += 1
+            if failures >= max_failures:
+                self.report_error(
+                    'Skipping the remaining entries in playlist "%s" since %d items failed extraction' % (playlist, failures))
+                break
             # TODO: skip failed (empty) entries?
             playlist_results.append(entry_result)
         ie_result['entries'] = playlist_results

@@ -396,6 +396,10 @@ def parseOpts(overrideArguments=None):
         action='store_true', dest='break_on_reject', default=False,
         help='Stop the download process when encountering a file that has been filtered out')
     selection.add_option(
+        '--skip-playlist-after-errors', metavar='N',
+        dest='skip_playlist_after_errors', default=None, type=int,
+        help='Number of allowed failures until the rest of the playlist is skipped')
+    selection.add_option(
         '--no-download-archive',
         dest='download_archive', action="store_const", const=None,
         help='Do not use archive file (default)')
@@ -522,7 +526,7 @@ def parseOpts(overrideArguments=None):
         action='store_true', dest='allow_unplayable_formats', default=False,
         help=(
             'Allow unplayable formats to be listed and downloaded. '
-            'All video postprocessing will also be turned off'))
+            'All video post-processing will also be turned off'))
     video_format.add_option(
         '--no-allow-unplayable-formats',
         action='store_false', dest='allow_unplayable_formats',
@@ -816,8 +820,8 @@ def parseOpts(overrideArguments=None):
         '--force-write-archive', '--force-write-download-archive', '--force-download-archive',
         action='store_true', dest='force_write_download_archive', default=False,
         help=(
-            'Force download archive entries to be written as far as no errors occur,'
-            'even if -s or another simulation switch is used (Alias: --force-download-archive)'))
+            'Force download archive entries to be written as far as no errors occur, '
+            'even if -s or another simulation option is used (Alias: --force-download-archive)'))
     verbosity.add_option(
         '--newline',
         action='store_true', dest='progress_with_newline', default=False,
@@ -904,7 +908,7 @@ def parseOpts(overrideArguments=None):
     filesystem.add_option(
         '--autonumber-start',
         dest='autonumber_start', metavar='NUMBER', default=1, type=int,
-        help='Specify the start value for %(autonumber)s (default is %default)')
+        help=optparse.SUPPRESS_HELP)
     filesystem.add_option(
         '--restrict-filenames',
         action='store_true', dest='restrictfilenames', default=False,
@@ -958,7 +962,7 @@ def parseOpts(overrideArguments=None):
         action='store_false', dest='continue_dl',
         help=(
             'Do not resume partially downloaded fragments. '
-            'If the file is unfragmented, restart download of the entire file'))
+            'If the file is not fragmented, restart download of the entire file'))
     filesystem.add_option(
         '--part',
         action='store_false', dest='nopart', default=False,
