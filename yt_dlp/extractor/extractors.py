@@ -1442,6 +1442,7 @@ from .ufctv import (
     UFCTVIE,
     UFCArabiaIE,
 )
+from .ukcolumn import UkColumnIE
 from .uktvplay import UKTVPlayIE
 from .digiteka import DigitekaIE
 from .dlive import (
@@ -1601,6 +1602,7 @@ from .weibo import (
 )
 from .weiqitv import WeiqiTVIE
 from .wimtv import WimTVIE
+from .whowatch import WhoWatchIE
 from .wistia import (
     WistiaIE,
     WistiaPlaylistIE,
