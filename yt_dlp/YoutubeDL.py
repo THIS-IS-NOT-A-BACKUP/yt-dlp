@@ -462,38 +462,24 @@ class YoutubeDL(object):
         }
         self.params.update(params)
         self.cache = Cache(self)
-        self.archive = set()
-
-        """Preload the archive, if any is specified"""
-        def preload_download_archive(self):
-            fn = self.params.get('download_archive')
-            if fn is None:
-                return False
-            try:
-                with locked_file(fn, 'r', encoding='utf-8') as archive_file:
-                    for line in archive_file:
-                        self.archive.add(line.strip())
-            except IOError as ioe:
-                if ioe.errno != errno.ENOENT:
-                    raise
-                return False
-            return True
 
         def check_deprecated(param, option, suggestion):
             if self.params.get(param) is not None:
                 self.report_warning(
-                    '%s is deprecated. Use %s instead.' % (option, suggestion))
+                    '%s is deprecated. Use %s instead' % (option, suggestion))
                 return True
             return False
-
-        if self.params.get('verbose'):
-            self.to_stdout('[debug] Loading archive file %r' % self.params.get('download_archive'))
-
-        preload_download_archive(self)
 
         if check_deprecated('cn_verification_proxy', '--cn-verification-proxy', '--geo-verification-proxy'):
             if self.params.get('geo_verification_proxy') is None:
                 self.params['geo_verification_proxy'] = self.params['cn_verification_proxy']
+
+        check_deprecated('autonumber_size', '--autonumber-size', 'output template with %(autonumber)0Nd, where N in the number of digits')
+        check_deprecated('autonumber', '--auto-number', '-o "%(autonumber)s-%(title)s.%(ext)s"')
+        check_deprecated('usetitle', '--title', '-o "%(title)s-%(id)s.%(ext)s"')
+
+        for msg in self.params.get('warnings', []):
+            self.report_warning(msg)
 
         if self.params.get('final_ext'):
             if self.params.get('merge_output_format'):
@@ -502,10 +488,6 @@ class YoutubeDL(object):
 
         if 'overwrites' in self.params and self.params['overwrites'] is None:
             del self.params['overwrites']
-
-        check_deprecated('autonumber_size', '--autonumber-size', 'output template with %(autonumber)0Nd, where N in the number of digits')
-        check_deprecated('autonumber', '--auto-number', '-o "%(autonumber)s-%(title)s.%(ext)s"')
-        check_deprecated('usetitle', '--title', '-o "%(title)s-%(id)s.%(ext)s"')
 
         if params.get('bidi_workaround', False):
             try:
@@ -547,6 +529,25 @@ class YoutubeDL(object):
         self.outtmpl_dict = self.parse_outtmpl()
 
         self._setup_opener()
+
+        """Preload the archive, if any is specified"""
+        def preload_download_archive(fn):
+            if fn is None:
+                return False
+            if self.params.get('verbose'):
+                self._write_string('[debug] Loading archive file %r\n' % fn)
+            try:
+                with locked_file(fn, 'r', encoding='utf-8') as archive_file:
+                    for line in archive_file:
+                        self.archive.add(line.strip())
+            except IOError as ioe:
+                if ioe.errno != errno.ENOENT:
+                    raise
+                return False
+            return True
+
+        self.archive = set()
+        preload_download_archive(self.params.get('download_archive'))
 
         if auto_init:
             self.print_debug_header()
@@ -826,7 +827,7 @@ class YoutubeDL(object):
         # For fields playlist_index and autonumber convert all occurrences
         # of %(field)s to %(field)0Nd for backward compatibility
         field_size_compat_map = {
-            'playlist_index': len(str(template_dict.get('n_entries', na))),
+            'playlist_index': len(str(template_dict.get('_last_playlist_index') or '')),
             'autonumber': autonumber_size,
         }
         FIELD_SIZE_COMPAT_RE = r'(?<!%)%\((?P<field>autonumber|playlist_index)\)s'
@@ -1347,6 +1348,7 @@ class YoutubeDL(object):
                 entry['__x_forwarded_for_ip'] = x_forwarded_for
             extra = {
                 'n_entries': n_entries,
+                '_last_playlist_index': max(playlistitems) if playlistitems else (playlistend or n_entries),
                 'playlist': playlist,
                 'playlist_id': ie_result.get('id'),
                 'playlist_title': ie_result.get('title'),
