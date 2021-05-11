@@ -20,6 +20,7 @@ A command-line program to download videos from YouTube and many other [video pla
 yt-dlp is a [youtube-dl](https://github.com/ytdl-org/youtube-dl) fork based on the now inactive [youtube-dlc](https://github.com/blackjack4494/yt-dlc). The main focus of this project is adding new features and patches while also keeping up to date with the original project
 
 * [NEW FEATURES](#new-features)
+    * [Differences in default behavior](#differences-in-default-behavior)
 * [INSTALLATION](#installation)
     * [Dependencies](#dependencies)
     * [Update](#update)
@@ -65,9 +66,9 @@ The major new features from the latest release of [blackjack4494/yt-dlc](https:/
 
 * **[Format Sorting](#sorting-formats)**: The default format sorting options have been changed so that higher resolution and better codecs will be now preferred instead of simply using larger bitrate. Furthermore, you can now specify the sort order using `-S`. This allows for much easier format selection that what is possible by simply using `--format` ([examples](#format-selection-examples))
 
-* **Merged with youtube-dl v2021.04.17**: You get all the latest features and patches of [youtube-dl](https://github.com/ytdl-org/youtube-dl) in addition to all the features of [youtube-dlc](https://github.com/blackjack4494/yt-dlc)
+* **Merged with youtube-dl [commit/a726009](https://github.com/ytdl-org/youtube-dl/commit/a7260099873acc6dc7d76cafad2f6b139087afd0)**: (v2021.04.26) You get all the latest features and patches of [youtube-dl](https://github.com/ytdl-org/youtube-dl) in addition to all the features of [youtube-dlc](https://github.com/blackjack4494/yt-dlc)
 
-* **Merged with animelover1984/youtube-dl**: You get most of the features and improvements from [animelover1984/youtube-dl](https://github.com/animelover1984/youtube-dl) including `--get-comments`, `BiliBiliSearch`, `BilibiliChannel`, Embedding thumbnail in mp4/ogg/opus, Playlist infojson etc. Note that the NicoNico improvements are not available. See [#31](https://github.com/yt-dlp/yt-dlp/pull/31) for details.
+* **Merged with animelover1984/youtube-dl**: You get most of the features and improvements from [animelover1984/youtube-dl](https://github.com/animelover1984/youtube-dl) including `--get-comments`, `BiliBiliSearch`, `BilibiliChannel`, Embedding thumbnail in mp4/ogg/opus, playlist infojson etc. Note that the NicoNico improvements are not available. See [#31](https://github.com/yt-dlp/yt-dlp/pull/31) for details.
 
 * **Youtube improvements**:
     * All Youtube Feeds (`:ytfav`, `:ytwatchlater`, `:ytsubs`, `:ythistory`, `:ytrec`) works and supports downloading multiple pages of content
@@ -81,17 +82,21 @@ The major new features from the latest release of [blackjack4494/yt-dlc](https:/
 
 * **Aria2c with HLS/DASH**: You can use `aria2c` as the external downloader for DASH(mpd) and HLS(m3u8) formats
 
-* **New extractors**: AnimeLab, Philo MSO, Rcs, Gedi, bitwave.tv, mildom, audius, zee5, mtv.it, wimtv, pluto.tv, niconico users, discoveryplus.in, mediathek, NFHSNetwork, nebula
+* **New extractors**: AnimeLab, Philo MSO, Rcs, Gedi, bitwave.tv, mildom, audius, zee5, mtv.it, wimtv, pluto.tv, niconico users, discoveryplus.in, mediathek, NFHSNetwork, nebula, ukcolumn, whowatch, MxplayerShow
 
-* **Fixed extractors**: archive.org, roosterteeth.com, skyit, instagram, itv, SouthparkDe, spreaker, Vlive, akamai, ina, rumble, tennistv, amcnetworks, la7 podcasts, linuxacadamy, nitter, twitcasting, viu
+* **Fixed extractors**: archive.org, roosterteeth.com, skyit, instagram, itv, SouthparkDe, spreaker, Vlive, akamai, ina, rumble, tennistv, amcnetworks, la7 podcasts, linuxacadamy, nitter, twitcasting, viu, crackle, curiositystream, mediasite, rmcdecouverte, sonyliv, tubi
+
+* **Subtitle extraction from manifests**: Subtitles can be extracted from streaming media manifests. See [be6202f12b97858b9d716e608394b51065d0419f](https://github.com/yt-dlp/yt-dlp/commit/be6202f12b97858b9d716e608394b51065d0419f) for details
 
 * **Multiple paths and output templates**: You can give different [output templates](#output-template) and download paths for different types of files. You can also set a temporary path where intermediary files are downloaded to using `--paths` (`-P`)
 
 * **Portable Configuration**: Configuration files are automatically loaded from the home and root directories. See [configuration](#configuration) for details
 
-* **Other new options**: `--parse-metadata`, `--list-formats-as-table`, `--write-link`, `--force-download-archive`, `--force-overwrites`, `--break-on-reject` etc
+* **Output template improvements**: Output templates can now have date-time formatting, numeric offsets, object traversal etc. See [output template](#output-template) for details. Even more advanced operations can also be done with the help of `--parse-metadata`
 
-* **Improvements**: Multiple `--postprocessor-args` and `--external-downloader-args`, Date/time formatting in `-o`, faster archive checking, more [format selection options](#format-selection) etc
+* **Other new options**: `--sleep-requests`, `--convert-thumbnails`, `--write-link`, `--force-download-archive`, `--force-overwrites`, `--break-on-reject` etc
+
+* **Improvements**: Multiple `--postprocessor-args` and `--downloader-args`, faster archive checking, more [format selection options](#format-selection) etc
 
 * **Plugin extractors**: Extractors can be loaded from an external file. See [plugins](#plugins) for details
 
@@ -104,6 +109,30 @@ See [changelog](Changelog.md) or [commits](https://github.com/yt-dlp/yt-dlp/comm
 **PS**: Some of these changes are already in youtube-dlc, but are still unreleased. See [this](Changelog.md#unreleased-changes-in-blackjack4494yt-dlc) for details
 
 If you are coming from [youtube-dl](https://github.com/ytdl-org/youtube-dl), the amount of changes are very large. Compare [options](#options) and [supported sites](supportedsites.md) with youtube-dl's to get an idea of the massive number of features/patches [youtube-dlc](https://github.com/blackjack4494/yt-dlc) has accumulated.
+
+### Differences in default behavior
+
+Some of yt-dlp's default options are different from that of youtube-dl and youtube-dlc.
+
+1. The options `--id`, `--auto-number` (`-A`), `--title` (`-t`) and `--literal` (`-l`), no longer work. See [removed options](#Removed) for details
+1. `avconv` is not supported as as an alternative to `ffmpeg`
+1. The default [output template](#output-template) is `%(title)s [%(id)s].%(ext)s`. There is no real reason for this change. This was changed before yt-dlp was ever made public and now there are no plans to change it back to `%(title)s.%(id)s.%(ext)s`. Instead, you may use `--compat-options filename`
+1. The default [format sorting](sorting-formats) is different from youtube-dl and prefers higher resolution and better codecs rather than higher bitrates. You can use the `--format-sort` option to change this to any order you prefer, or use `--compat-options format-sort` to use youtube-dl's sorting order
+1. The default format selector is `bv*+ba/b`. This means that if a combined video + audio format that is better than the best video-only format is found, the former will be prefered. Use `-f bv+ba/b` or `--compat-options format-spec` to revert this
+1. Unlike youtube-dlc, yt-dlp does not allow merging multiple audio/video streams into one file by default (since this conflicts with the use of `-f bv*+ba`). If needed, this feature must be enabled using `--audio-multistreams` and `--video-multistreams`. You can also use `--compat-options multistreams` to enable both
+1. `--ignore-errors` is enabled by default. Use `--abort-on-error` or `--compat-options abort-on-error` to abort on errors instead
+1. When writing metadata files such as thumbnails, description or infojson, the same information (if available) is also written for playlists. Use `--no-write-playlist-metafiles` or `--compat-options no-playlist-metafiles` to not write these files
+1. `--add-metadata` attaches the `infojson` to `mkv` files in addition to writing the metadata when used with `--write-infojson`. Use `--compat-options no-attach-info-json` to revert this
+1. `playlist_index` behaves differently when used with options like `--playlist-reverse` and `--playlist-items`. See [#302](https://github.com/yt-dlp/yt-dlp/issues/302) for details. You can use `--compat-options playlist-index` if you want to keep the earlier behavior
+1. The output of `-F` is listed in a new format. Use `--compat-options list-formats` to revert this
+1. Youtube live chat (if available) is considered as a subtitle. Use `--sub-langs all,-live_chat` to download all subtitles except live chat. You can also use `--compat-options no-live-chat` to prevent live chat from downloading
+1. Youtube channel URLs are automatically redirected to `/video`. Either append a `/featured` to the URL or use `--compat-options no-youtube-channel-redirect` to download only the videos in the home page
+1. Unavailable videos are also listed for youtube playlists. Use `--compat-options no-youtube-unavailable-videos` to remove this
+
+For ease of use, a few more compat options are available:
+1. `--compat-options all` = Use all compat options
+1. `--compat-options youtube-dl` = `--compat-options all,-multistreams`
+1. `--compat-options youtube-dlc` = `--compat-options all,-no-live-chat,-no-youtube-channel-redirect`
 
 
 # INSTALLATION
@@ -137,7 +166,9 @@ sudo chmod a+rx /usr/local/bin/yt-dlp
 ### DEPENDENCIES
 Python versions 3.6+ (CPython and PyPy) are officially supported. Other versions and implementations may or maynot work correctly.
 
-Although there are no required dependencies, `ffmpeg` and `ffprobe` are highly recommended. Other optional dependencies are `sponskrub`, `AtomicParsley`, `mutagen`, `pycryptodome` and any of the supported external downloaders. Note that the windows releases are already built with the python interpreter, mutagen and pycryptodome included.
+On windows, [Microsoft Visual C++ 2010 Redistributable Package (x86)](https://www.microsoft.com/en-us/download/details.aspx?id=26999) is also necessary to run yt-dlp. You probably already have this, but if the executable throws an error due to missing `MSVCR100.dll` you need to install it.
+
+Although there are no other required dependencies, `ffmpeg` and `ffprobe` are highly recommended. Other optional dependencies are `sponskrub`, `AtomicParsley`, `mutagen`, `pycryptodome` and any of the supported external downloaders. Note that the windows releases are already built with the python interpreter, mutagen and pycryptodome included.
 
 ### UPDATE
 You can use `yt-dlp -U` to update if you are using the provided release.
@@ -155,6 +186,8 @@ Once you have all the necessary dependencies installed, just run `py pyinst.py`.
 You can also build the executable without any version info or metadata by using:
 
     pyinstaller.exe yt_dlp\__main__.py --onefile --name yt-dlp
+    
+Note that pyinstaller [does not support](https://github.com/pyinstaller/pyinstaller#requirements-and-tested-platforms) Python installed from the Windows store without using a virtual environment
 
 **For Unix**:
 You will need the required build tools: `python`, `make` (GNU), `pandoc`, `zip`, `nosetests`  
@@ -212,6 +245,11 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
     --mark-watched                   Mark videos watched (YouTube only)
     --no-mark-watched                Do not mark videos watched (default)
     --no-colors                      Do not emit color codes in output
+    --compat-options OPTS            Options that can help keep compatibility
+                                     with youtube-dl and youtube-dlc
+                                     configurations by reverting some of the
+                                     changes made in yt-dlp. See "Differences in
+                                     default behavior" for details
 
 ## Network Options:
     --proxy URL                      Use the specified HTTP/HTTPS/SOCKS proxy.
@@ -583,10 +621,6 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
                                      actually downloadable (Experimental)
     -F, --list-formats               List all available formats of requested
                                      videos
-    --list-formats-as-table          Present the output of -F in tabular form
-                                     (default)
-    --list-formats-old               Present the output of -F in the old form
-                                     (Alias: --no-list-formats-as-table)
     --merge-output-format FORMAT     If a merge is required (e.g.
                                      bestvideo+bestaudio), output to given
                                      container format. One of mkv, mp4, ogg,
@@ -1286,6 +1320,8 @@ While these options still work, their use is not recommended since there are oth
     --metadata-from-title FORMAT     --parse-metadata "%(title)s:FORMAT"
     --hls-prefer-native              --downloader "m3u8:native"
     --hls-prefer-ffmpeg              --downloader "m3u8:ffmpeg"
+    --list-formats-old               --compat-options list-formats (Alias: --no-list-formats-as-table)
+    --list-formats-as-table          --compat-options -list-formats [Default] (Alias: --no-list-formats-old)
     --sponskrub-args ARGS            --ppa "sponskrub:ARGS"
     --test                           Used by developers for testing extractors. Not intended for the end user
 
