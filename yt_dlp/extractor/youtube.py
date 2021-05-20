@@ -85,7 +85,20 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
 
         If _LOGIN_REQUIRED is set and no authentication was provided, an error is raised.
         """
+
+        def warn(message):
+            self.report_warning(message)
+
+        # username+password login is broken
+        if self._LOGIN_REQUIRED and self.get_param('cookiefile') is None:
+            self.raise_login_required(
+                'Login details are needed to download this content', method='cookies')
         username, password = self._get_login_info()
+        if username:
+            warn('Logging in using username and password is broken. %s' % self._LOGIN_HINTS['cookies'])
+        return
+        # Everything below this is broken!
+
         # No authentication to be performed
         if username is None:
             if self._LOGIN_REQUIRED and self.get_param('cookiefile') is None:
@@ -125,9 +138,6 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
                     'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
                     'Google-Accounts-XSRF': 1,
                 })
-
-        def warn(message):
-            self.report_warning(message)
 
         lookup_req = [
             username,
@@ -1893,7 +1903,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                         'el': 'detailpage',
                         'c': 'WEB_REMIX',
                         'cver': '0.1',
-                        'cplayer': 'UNIPLAYER'
+                        'cplayer': 'UNIPLAYER',
+                        'html5': '1',
                     }, fatal=False)),
                 lambda x: x['player_response'][0],
                 compat_str) or '{}', video_id)
@@ -1919,6 +1930,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     'unable to download video info webpage', query={
                         'video_id': video_id,
                         'eurl': 'https://youtube.googleapis.com/v/' + video_id,
+                        'html5': '1',
                     }, fatal=False)),
                 lambda x: x['player_response'][0],
                 compat_str) or '{}', video_id)
@@ -4017,9 +4029,6 @@ class YoutubeFeedsInfoExtractor(YoutubeTabIE):
     @property
     def IE_NAME(self):
         return 'youtube:%s' % self._FEED_NAME
-
-    def _real_initialize(self):
-        self._login()
 
     def _real_extract(self, url):
         return self.url_result(
