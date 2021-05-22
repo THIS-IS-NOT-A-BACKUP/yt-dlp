@@ -1184,7 +1184,10 @@ from .slideslive import SlidesLiveIE
 from .slutload import SlutloadIE
 from .snotr import SnotrIE
 from .sohu import SohuIE
-from .sonyliv import SonyLIVIE
+from .sonyliv import (
+    SonyLIVIE,
+    SonyLIVSeriesIE,
+)
 from .soundcloud import (
     SoundcloudEmbedIE,
     SoundcloudIE,
@@ -1292,6 +1295,7 @@ from .telebruxelles import TeleBruxellesIE
 from .telecinco import TelecincoIE
 from .telegraaf import TelegraafIE
 from .telemb import TeleMBIE
+from .telemundo import TelemundoIE
 from .telequebec import (
     TeleQuebecIE,
     TeleQuebecSquatIE,
