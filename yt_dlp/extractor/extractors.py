@@ -396,6 +396,7 @@ from .facebook import (
     FacebookIE,
     FacebookPluginsVideoIE,
 )
+from .fancode import FancodeVodIE
 from .faz import FazIE
 from .fc2 import (
     FC2IE,
@@ -1119,6 +1120,7 @@ from .safari import (
     SafariApiIE,
     SafariCourseIE,
 )
+from .saitosan import SaitosanIE
 from .samplefocus import SampleFocusIE
 from .sapo import SapoIE
 from .savefrom import SaveFromIE
@@ -1558,7 +1560,10 @@ from .vodlocker import VodlockerIE
 from .vodpl import VODPlIE
 from .vodplatform import VODPlatformIE
 from .voicerepublic import VoiceRepublicIE
-from .voot import VootIE
+from .voot import (
+    VootIE,
+    VootSeriesIE,
+)
 from .voxmedia import (
     VoxMediaVolumeIE,
     VoxMediaIE,
