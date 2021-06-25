@@ -420,11 +420,16 @@ class YoutubeDL(object):
     dynamic_mpd:       Whether to process dynamic DASH manifests (default: True)
     hls_split_discontinuity: Split HLS playlists to different formats at
                        discontinuities such as ad breaks (default: False)
-    youtube_include_dash_manifest: If True (default), DASH manifests and related
+    extractor_args:    A dictionary of arguments to be passed to the extractors.
+                       See "EXTRACTOR ARGUMENTS" for details.
+                       Eg: {'youtube': {'skip': ['dash', 'hls']}}
+    youtube_include_dash_manifest: Deprecated - Use extractor_args instead.
+                       If True (default), DASH manifests and related
                        data will be downloaded and processed by extractor.
                        You can reduce network I/O by disabling it if you don't
                        care about DASH. (only for youtube)
-    youtube_include_hls_manifest: If True (default), HLS manifests and related
+    youtube_include_hls_manifest: Deprecated - Use extractor_args instead.
+                       If True (default), HLS manifests and related
                        data will be downloaded and processed by extractor.
                        You can reduce network I/O by disabling it if you don't
                        care about HLS. (only for youtube)
@@ -2798,7 +2803,7 @@ class YoutubeDL(object):
             info = self.filter_requested_info(json.loads('\n'.join(f)), self.params.get('clean_infojson', True))
         try:
             self.process_ie_result(info, download=True)
-        except (DownloadError, EntryNotInPlaylist):
+        except (DownloadError, EntryNotInPlaylist, ThrottledDownload):
             webpage_url = info.get('webpage_url')
             if webpage_url is not None:
                 self.report_warning('The info failed to download, trying with "%s"' % webpage_url)
@@ -3079,7 +3084,7 @@ class YoutubeDL(object):
             'Available %s for %s:' % (name, video_id))
 
         def _row(lang, formats):
-            exts, names = zip(*((f['ext'], f.get('name', 'unknown')) for f in reversed(formats)))
+            exts, names = zip(*((f['ext'], f.get('name') or 'unknown') for f in reversed(formats)))
             if len(set(names)) == 1:
                 names = [] if names[0] == 'unknown' else names[:1]
             return [lang, ', '.join(names), ', '.join(exts)]
