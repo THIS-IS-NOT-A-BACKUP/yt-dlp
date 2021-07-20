@@ -48,6 +48,7 @@ from ..utils import (
     smuggle_url,
     str_or_none,
     str_to_int,
+    traverse_obj,
     try_get,
     unescapeHTML,
     unified_strdate,
@@ -56,7 +57,7 @@ from ..utils import (
     url_or_none,
     urlencode_postdata,
     urljoin,
-    variadic
+    variadic,
 )
 
 
@@ -1073,21 +1074,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 'format': '141/bestaudio[ext=m4a]',
             },
         },
-        # Controversy video
-        {
-            'url': 'https://www.youtube.com/watch?v=T4XJQO3qol8',
-            'info_dict': {
-                'id': 'T4XJQO3qol8',
-                'ext': 'mp4',
-                'duration': 219,
-                'upload_date': '20100909',
-                'uploader': 'Amazing Atheist',
-                'uploader_id': 'TheAmazingAtheist',
-                'uploader_url': r're:https?://(?:www\.)?youtube\.com/user/TheAmazingAtheist',
-                'title': 'Burning Everyone\'s Koran',
-                'description': 'SUBSCRIBE: http://www.youtube.com/saturninefilms \r\n\r\nEven Obama has taken a stand against freedom on this issue: http://www.huffingtonpost.com/2010/09/09/obama-gma-interview-quran_n_710282.html',
-            }
-        },
         # Normal age-gate video (embed allowed)
         {
             'url': 'https://youtube.com/watch?v=HtVdAasjOgU',
@@ -1621,6 +1607,19 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             'only_matching': True,
         },
         {
+            # controversial video, requires bpctr/contentCheckOk
+            'url': 'https://www.youtube.com/watch?v=SZJvDhaSDnc',
+            'info_dict': {
+                'id': 'SZJvDhaSDnc',
+                'ext': 'mp4',
+                'title': 'San Diego teen commits suicide after bullying over embarrassing video',
+                'channel_id': 'UC-SJ6nODDmufqBzPBwCvYvQ',
+                'uploader': 'CBS This Morning',
+                'upload_date': '20140716',
+                'description': 'md5:acde3a73d3f133fc97e837a9f76b53b7'
+            }
+        },
+        {
             # restricted location, https://github.com/ytdl-org/youtube-dl/issues/28685
             'url': 'cBvYw8_A0vQ',
             'info_dict': {
@@ -1930,44 +1929,56 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         video_id = mobj.group(2)
         return video_id
 
-    def _extract_chapters_from_json(self, data, video_id, duration):
-        chapters_list = try_get(
-            data,
-            lambda x: x['playerOverlays']
-                       ['playerOverlayRenderer']
-                       ['decoratedPlayerBarRenderer']
-                       ['decoratedPlayerBarRenderer']
-                       ['playerBar']
-                       ['chapteredPlayerBarRenderer']
-                       ['chapters'],
-            list)
-        if not chapters_list:
-            return
+    def _extract_chapters_from_json(self, data, duration):
+        chapter_list = traverse_obj(
+            data, (
+                'playerOverlays', 'playerOverlayRenderer', 'decoratedPlayerBarRenderer',
+                'decoratedPlayerBarRenderer', 'playerBar', 'chapteredPlayerBarRenderer', 'chapters'
+            ), expected_type=list)
 
-        def chapter_time(chapter):
-            return float_or_none(
-                try_get(
-                    chapter,
-                    lambda x: x['chapterRenderer']['timeRangeStartMillis'],
-                    int),
-                scale=1000)
+        return self._extract_chapters(
+            chapter_list,
+            chapter_time=lambda chapter: float_or_none(
+                traverse_obj(chapter, ('chapterRenderer', 'timeRangeStartMillis')), scale=1000),
+            chapter_title=lambda chapter: traverse_obj(
+                chapter, ('chapterRenderer', 'title', 'simpleText'), expected_type=str),
+            duration=duration)
+
+    def _extract_chapters_from_engagement_panel(self, data, duration):
+        content_list = traverse_obj(
+            data,
+            ('engagementPanels', ..., 'engagementPanelSectionListRenderer', 'content', 'macroMarkersListRenderer', 'contents'),
+            expected_type=list, default=[])
+        chapter_time = lambda chapter: parse_duration(self._get_text(chapter.get('timeDescription')))
+        chapter_title = lambda chapter: self._get_text(chapter.get('title'))
+
+        return next((
+            filter(None, (
+                self._extract_chapters(
+                    traverse_obj(contents, (..., 'macroMarkersListItemRenderer')),
+                    chapter_time, chapter_title, duration)
+                for contents in content_list
+            ))), [])
+
+    def _extract_chapters(self, chapter_list, chapter_time, chapter_title, duration):
         chapters = []
-        for next_num, chapter in enumerate(chapters_list, start=1):
+        last_chapter = {'start_time': 0}
+        for idx, chapter in enumerate(chapter_list or []):
+            title = chapter_title(chapter)
             start_time = chapter_time(chapter)
             if start_time is None:
                 continue
-            end_time = (chapter_time(chapters_list[next_num])
-                        if next_num < len(chapters_list) else duration)
-            if end_time is None:
-                continue
-            title = try_get(
-                chapter, lambda x: x['chapterRenderer']['title']['simpleText'],
-                compat_str)
-            chapters.append({
-                'start_time': start_time,
-                'end_time': end_time,
-                'title': title,
-            })
+            last_chapter['end_time'] = start_time
+            if start_time < last_chapter['start_time']:
+                if idx == 1:
+                    chapters.pop()
+                    self.report_warning('Invalid start time for chapter "%s"' % last_chapter['title'])
+                else:
+                    self.report_warning(f'Invalid start time for chapter "{title}"')
+                    continue
+            last_chapter = {'start_time': start_time, 'title': title}
+            chapters.append(last_chapter)
+        last_chapter['end_time'] = duration
         return chapters
 
     def _extract_yt_initial_variable(self, webpage, regex, video_id, name):
@@ -1983,7 +1994,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         """
         time_text_split = time_text.split(' ')
         if len(time_text_split) >= 3:
-            return datetime_from_str('now-%s%s' % (time_text_split[0], time_text_split[1]), precision='auto')
+            try:
+                return datetime_from_str('now-%s%s' % (time_text_split[0], time_text_split[1]), precision='auto')
+            except ValueError:
+                return None
 
     def _extract_comment(self, comment_renderer, parent=None):
         comment_id = comment_renderer.get('commentId')
@@ -2249,7 +2263,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         return {
             'playbackContext': {
                 'contentPlaybackContext': context
-            }
+            },
+            'contentCheckOk': True
         }
 
     @staticmethod
@@ -2645,6 +2660,18 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                                 f['stretched_ratio'] = ratio
                         break
 
+        category = microformat.get('category') or search_meta('genre')
+        channel_id = video_details.get('channelId') \
+            or microformat.get('externalChannelId') \
+            or search_meta('channelId')
+        duration = int_or_none(
+            video_details.get('lengthSeconds')
+            or microformat.get('lengthSeconds')) \
+            or parse_duration(search_meta('duration'))
+        is_live = video_details.get('isLive')
+        is_upcoming = video_details.get('isUpcoming')
+        owner_profile_url = microformat.get('ownerProfileUrl')
+
         thumbnails = []
         for container in (video_details, microformat):
             for thumbnail in (try_get(
@@ -2662,33 +2689,34 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     'url': thumbnail_url,
                     'height': int_or_none(thumbnail.get('height')),
                     'width': int_or_none(thumbnail.get('width')),
-                    'preference': 1 if 'maxresdefault' in thumbnail_url else -1
                 })
         thumbnail_url = search_meta(['og:image', 'twitter:image'])
         if thumbnail_url:
             thumbnails.append({
                 'url': thumbnail_url,
-                'preference': 1 if 'maxresdefault' in thumbnail_url else -1
             })
-        # All videos have a maxresdefault thumbnail, but sometimes it does not appear in the webpage
-        # See: https://github.com/ytdl-org/youtube-dl/issues/29049
-        thumbnails.append({
-            'url': 'https://i.ytimg.com/vi/%s/maxresdefault.jpg' % video_id,
-            'preference': 1,
-        })
-        self._remove_duplicate_formats(thumbnails)
+        # The best resolution thumbnails sometimes does not appear in the webpage
+        # See: https://github.com/ytdl-org/youtube-dl/issues/29049, https://github.com/yt-dlp/yt-dlp/issues/340
+        # List of possible thumbnails - Ref: <https://stackoverflow.com/a/20542029>
+        hq_thumbnail_names = ['maxresdefault', 'hq720', 'sddefault', 'sd1', 'sd2', 'sd3']
+        guaranteed_thumbnail_names = [
+            'hqdefault', 'hq1', 'hq2', 'hq3', '0',
+            'mqdefault', 'mq1', 'mq2', 'mq3',
+            'default', '1', '2', '3'
+        ]
+        thumbnail_names = hq_thumbnail_names + guaranteed_thumbnail_names
+        n_thumbnail_names = len(thumbnail_names)
 
-        category = microformat.get('category') or search_meta('genre')
-        channel_id = video_details.get('channelId') \
-            or microformat.get('externalChannelId') \
-            or search_meta('channelId')
-        duration = int_or_none(
-            video_details.get('lengthSeconds')
-            or microformat.get('lengthSeconds')) \
-            or parse_duration(search_meta('duration'))
-        is_live = video_details.get('isLive')
-        is_upcoming = video_details.get('isUpcoming')
-        owner_profile_url = microformat.get('ownerProfileUrl')
+        thumbnails.extend({
+            'url': 'https://i.ytimg.com/vi{webp}/{video_id}/{name}{live}.{ext}'.format(
+                video_id=video_id, name=name, ext=ext,
+                webp='_webp' if ext == 'webp' else '', live='_live' if is_live else ''),
+            '_test_url': name in hq_thumbnail_names,
+        } for name in thumbnail_names for ext in ('webp', 'jpg'))
+        for thumb in thumbnails:
+            i = next((i for i, t in enumerate(thumbnail_names) if f'/{video_id}/{t}' in thumb['url']), n_thumbnail_names)
+            thumb['preference'] = (0 if '.webp' in thumb['url'] else -1) - (2 * i)
+        self._remove_duplicate_formats(thumbnails)
 
         info = {
             'id': video_id,
@@ -2817,38 +2845,10 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             pass
 
         if initial_data:
-            chapters = self._extract_chapters_from_json(
-                initial_data, video_id, duration)
-            if not chapters:
-                for engagment_pannel in (initial_data.get('engagementPanels') or []):
-                    contents = try_get(
-                        engagment_pannel, lambda x: x['engagementPanelSectionListRenderer']['content']['macroMarkersListRenderer']['contents'],
-                        list)
-                    if not contents:
-                        continue
-
-                    def chapter_time(mmlir):
-                        return parse_duration(
-                            self._get_text(mmlir.get('timeDescription')))
-
-                    chapters = []
-                    for next_num, content in enumerate(contents, start=1):
-                        mmlir = content.get('macroMarkersListItemRenderer') or {}
-                        start_time = chapter_time(mmlir)
-                        end_time = chapter_time(try_get(
-                            contents, lambda x: x[next_num]['macroMarkersListItemRenderer'])) \
-                            if next_num < len(contents) else duration
-                        if start_time is None or end_time is None:
-                            continue
-                        chapters.append({
-                            'start_time': start_time,
-                            'end_time': end_time,
-                            'title': self._get_text(mmlir.get('title')),
-                        })
-                    if chapters:
-                        break
-            if chapters:
-                info['chapters'] = chapters
+            info['chapters'] = (
+                self._extract_chapters_from_json(initial_data, duration)
+                or self._extract_chapters_from_engagement_panel(initial_data, duration)
+                or None)
 
             contents = try_get(
                 initial_data,
@@ -3728,6 +3728,7 @@ class YoutubeTabIE(YoutubeBaseInfoExtractor):
             known_renderers = {
                 'gridPlaylistRenderer': (self._grid_entries, 'items'),
                 'gridVideoRenderer': (self._grid_entries, 'items'),
+                'gridChannelRenderer': (self._grid_entries, 'items'),
                 'playlistVideoRenderer': (self._playlist_entries, 'contents'),
                 'itemSectionRenderer': (extract_entries, 'contents'),  # for feeds
                 'richItemRenderer': (extract_entries, 'contents'),  # for hashtag
