@@ -941,6 +941,7 @@ The available fields are:
  - `average_rating` (numeric): Average rating give by users, the scale used depends on the webpage
  - `comment_count` (numeric): Number of comments on the video (For some extractors, comments are only downloaded at the end, and so this field cannot be used)
  - `age_limit` (numeric): Age restriction for the video (years)
+ - `live_status` (string): One of 'is_live', 'was_live', 'upcoming', 'not_live'
  - `is_live` (boolean): Whether this video is a live stream or a fixed-length video
  - `was_live` (boolean): Whether this video was originally a live stream
  - `playable_in_embed` (string): Whether this video is allowed to play in embedded players on other sites
@@ -1337,12 +1338,12 @@ Some extractors accept additional arguments which can be passed using `--extract
 The following extractors use this feature:
 * **youtube**
     * `skip`: `hls` or `dash` (or both) to skip download of the respective manifests
-    * `player_client`: `web` (default) or `android` (force use the android client fallbacks for video extraction)
-    * `player_skip`: `configs` - skip requests if applicable for client configs and use defaults
+    * `player_client`: Clients to extract video data from - one or more of `web`, `android`, `ios`, `web_music`, `android_music`, `ios_music`. By default, `android,web` is used. If the URL is from `music.youtube.com`, `android,web,android_music,web_music` is used
+    * `player_skip`: `configs` - skip any requests for client configs and use defaults
     * `comment_sort`: `top` or `new` (default) - choose comment sorting mode (on YouTube's side).
     * `max_comments`: maximum amount of comments to download (default all).
     * `max_comment_depth`: maximum depth for nested comments. YouTube supports depths 1 or 2 (default). 
-    
+
 * **funimation**
     * `language`: Languages to extract. Eg: `funimation:language=english,japanese`
     * `version`: The video version to extract - `uncut` or `simulcast`
