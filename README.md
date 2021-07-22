@@ -75,9 +75,12 @@ The major new features from the latest release of [blackjack4494/yt-dlc](https:/
     * All Feeds (`:ytfav`, `:ytwatchlater`, `:ytsubs`, `:ythistory`, `:ytrec`) supports downloading multiple pages of content
     * Search (`ytsearch:`, `ytsearchdate:`), search URLs and in-channel search works
     * Mixes supports downloading multiple pages of content
+    * Partial workarounds for age-gate and throttling issues
     * Redirect channel's home URL automatically to `/video` to preserve the old behaviour
     * `255kbps` audio is extracted from youtube music if premium cookies are given
     * Youtube music Albums, channels etc can be downloaded
+
+* **Cookies from browser**: Cookies can be automatically extracted from all major web browsers using `--cookies-from-browser BROWSER[:PROFILE]`
 
 * **Split video by chapters**: Videos can be split into multiple files based on chapters using `--split-chapters`
 
@@ -85,9 +88,9 @@ The major new features from the latest release of [blackjack4494/yt-dlc](https:/
 
 * **Aria2c with HLS/DASH**: You can use `aria2c` as the external downloader for DASH(mpd) and HLS(m3u8) formats
 
-* **New extractors**: AnimeLab, Philo MSO, Spectrum MSO, Rcs, Gedi, bitwave.tv, mildom, audius, zee5, mtv.it, wimtv, pluto.tv, niconico users, discoveryplus.in, mediathek, NFHSNetwork, nebula, ukcolumn, whowatch, MxplayerShow, parlview (au), YoutubeWebArchive, fancode, Saitosan, ShemarooMe, telemundo, VootSeries, SonyLIVSeries, HotstarSeries, VidioPremier, VidioLive, RCTIPlus, TBS Live
+* **New extractors**: AnimeLab, Philo MSO, Spectrum MSO, Rcs, Gedi, bitwave.tv, mildom, audius, zee5, mtv.it, wimtv, pluto.tv, niconico users, discoveryplus.in, mediathek, NFHSNetwork, nebula, ukcolumn, whowatch, MxplayerShow, parlview (au), YoutubeWebArchive, fancode, Saitosan, ShemarooMe, telemundo, VootSeries, SonyLIVSeries, HotstarSeries, VidioPremier, VidioLive, RCTIPlus, TBS Live, douyin, pornflip
 
-* **Fixed extractors**: archive.org, roosterteeth.com, skyit, instagram, itv, SouthparkDe, spreaker, Vlive, akamai, ina, rumble, tennistv, amcnetworks, la7 podcasts, linuxacadamy, nitter, twitcasting, viu, crackle, curiositystream, mediasite, rmcdecouverte, sonyliv, tubi, tenplay, patreon, videa, yahoo
+* **Fixed extractors**: archive.org, roosterteeth.com, skyit, instagram, itv, SouthparkDe, spreaker, Vlive, akamai, ina, rumble, tennistv, amcnetworks, la7 podcasts, linuxacadamy, nitter, twitcasting, viu, crackle, curiositystream, mediasite, rmcdecouverte, sonyliv, tubi, tenplay, patreon, videa, yahoo, BravoTV, crunchyroll playlist, RTP, viki
 
 * **Subtitle extraction from manifests**: Subtitles can be extracted from streaming media manifests. See [commit/be6202f](https://github.com/yt-dlp/yt-dlp/commit/be6202f12b97858b9d716e608394b51065d0419f) for details
 
@@ -185,6 +188,7 @@ While all the other dependancies are optional, `ffmpeg` and `ffprobe` are highly
 * [**mutagen**](https://github.com/quodlibet/mutagen) - For embedding thumbnail in certain formats. Licenced under [GPLv2+](https://github.com/quodlibet/mutagen/blob/master/COPYING)
 * [**pycryptodome**](https://github.com/Legrandin/pycryptodome) - For decrypting various data. Licenced under [BSD2](https://github.com/Legrandin/pycryptodome/blob/master/LICENSE.rst)
 * [**websockets**](https://github.com/aaugustin/websockets) - For downloading over websocket. Licenced under [BSD3](https://github.com/aaugustin/websockets/blob/main/LICENSE)
+* [**keyring**](https://github.com/jaraco/keyring) - For decrypting cookies of chromium-based browsers on Linux. Licenced under [MIT](https://github.com/jaraco/keyring/blob/main/LICENSE)
 * [**AtomicParsley**](https://github.com/wez/atomicparsley) - For embedding thumbnail in mp4/m4a if mutagen is not present. Licenced under [GPLv2+](https://github.com/wez/atomicparsley/blob/master/COPYING)
 * [**rtmpdump**](http://rtmpdump.mplayerhq.hu) - For downloading `rtmp` streams. ffmpeg will be used as a fallback. Licenced under [GPLv2+](http://rtmpdump.mplayerhq.hu)
 * [**mplayer**](http://mplayerhq.hu/design7/info.html) or [**mpv**](https://mpv.io) - For downloading `rstp` streams. ffmpeg will be used as a fallback. Licenced under [GPLv2+](https://github.com/mpv-player/mpv/blob/master/Copyright)
@@ -520,7 +524,19 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
                                      option)
     --cookies FILE                   File to read cookies from and dump cookie
                                      jar in
-    --no-cookies                     Do not read/dump cookies (default)
+    --no-cookies                     Do not read/dump cookies from/to file
+                                     (default)
+    --cookies-from-browser BROWSER[:PROFILE]
+                                     Load cookies from a user profile of the
+                                     given web browser. Currently supported
+                                     browsers are: brave|chrome|chromium|edge|fi
+                                     refox|opera|safari|vivaldi. You can specify
+                                     the user profile name or directory using
+                                     "BROWSER:PROFILE_NAME" or
+                                     "BROWSER:PROFILE_PATH". If no profile is
+                                     given, the most recently accessed one is
+                                     used
+    --no-cookies-from-browser        Do not load cookies from browser (default)
     --cache-dir DIR                  Location in the filesystem where youtube-dl
                                      can store some downloaded information (such
                                      as client ids and signatures) permanently.
@@ -826,7 +842,7 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
     --extractor-args KEY:ARGS        Pass these arguments to the extractor. See
                                      "EXTRACTOR ARGUMENTS" for details. You can
                                      use this option multiple times to give
-                                     different arguments to different extractors
+                                     arguments for different extractors
 
 # CONFIGURATION
 

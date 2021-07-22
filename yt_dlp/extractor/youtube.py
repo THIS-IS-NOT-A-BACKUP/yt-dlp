@@ -39,6 +39,7 @@ from ..utils import (
     int_or_none,
     intlist_to_bytes,
     mimetype2ext,
+    network_exceptions,
     orderedSet,
     parse_codecs,
     parse_count,
@@ -99,7 +100,9 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
             self.report_warning(message)
 
         # username+password login is broken
-        if self._LOGIN_REQUIRED and self.get_param('cookiefile') is None:
+        if (self._LOGIN_REQUIRED
+                and self.get_param('cookiefile') is None
+                and self.get_param('cookiesfrombrowser') is None):
             self.raise_login_required(
                 'Login details are needed to download this content', method='cookies')
         username, password = self._get_login_info()
@@ -518,13 +521,15 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
         yt_cookies = self._get_cookies('https://www.youtube.com')
         sapisid_cookie = dict_get(
             yt_cookies, ('__Secure-3PAPISID', 'SAPISID'))
-        if sapisid_cookie is None:
+        if sapisid_cookie is None or not sapisid_cookie.value:
             return
         time_now = round(time.time())
         # SAPISID cookie is required if not already present
         if not yt_cookies.get('SAPISID'):
+            self.write_debug('Copying __Secure-3PAPISID cookie to SAPISID cookie', only_once=True)
             self._set_cookie(
                 '.youtube.com', 'SAPISID', sapisid_cookie.value, secure=True, expire_time=time_now + 3600)
+        self.write_debug('Extracted SAPISID cookie', only_once=True)
         # SAPISIDHASH algorithm from https://stackoverflow.com/a/32065323
         sapisidhash = hashlib.sha1(
             f'{time_now} {sapisid_cookie.value} {origin}'.encode('utf-8')).hexdigest()
@@ -756,12 +761,15 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
                     api_hostname=api_hostname, default_client=default_client,
                     note='%s%s' % (note, ' (retry #%d)' % count if count else ''))
             except ExtractorError as e:
-                if isinstance(e.cause, compat_HTTPError) and e.cause.code in (500, 503, 404):
+                if isinstance(e.cause, network_exceptions):
                     # Downloading page may result in intermittent 5xx HTTP error
                     # Sometimes a 404 is also recieved. See: https://github.com/ytdl-org/youtube-dl/issues/28289
-                    last_error = 'HTTP Error %s' % e.cause.code
-                    if count < retries:
-                        continue
+                    # We also want to catch all other network exceptions since errors in later pages can be troublesome
+                    # See https://github.com/yt-dlp/yt-dlp/issues/507#issuecomment-880188210
+                    if not isinstance(e.cause, compat_HTTPError) or e.cause.code not in (403, 429):
+                        last_error = error_to_compat_str(e.cause or e)
+                        if count < retries:
+                            continue
                 if fatal:
                     raise
                 else:
@@ -2335,7 +2343,8 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             'playbackContext': {
                 'contentPlaybackContext': context
             },
-            'contentCheckOk': True
+            'contentCheckOk': True,
+            'racyCheckOk': True
         }
 
     @staticmethod
@@ -2761,6 +2770,7 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         # See: https://github.com/ytdl-org/youtube-dl/issues/29049, https://github.com/yt-dlp/yt-dlp/issues/340
         # List of possible thumbnails - Ref: <https://stackoverflow.com/a/20542029>
         hq_thumbnail_names = ['maxresdefault', 'hq720', 'sddefault', 'sd1', 'sd2', 'sd3']
+        # TODO: Test them also? - For some videos, even these don't exist
         guaranteed_thumbnail_names = [
             'hqdefault', 'hq1', 'hq2', 'hq3', '0',
             'mqdefault', 'mq1', 'mq2', 'mq3',
