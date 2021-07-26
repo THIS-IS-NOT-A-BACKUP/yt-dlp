@@ -439,7 +439,21 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
                 }
             },
             'INNERTUBE_CONTEXT_CLIENT_NAME': 66
-        }
+        },
+        'MWEB': {
+            'INNERTUBE_API_VERSION': 'v1',
+            'INNERTUBE_CLIENT_NAME': 'MWEB',
+            'INNERTUBE_CLIENT_VERSION': '2.20210721.07.00',
+            'INNERTUBE_API_KEY': 'AIzaSyDCU8hByM-4DrUqRUYnGn-3llEO78bcxq8',
+            'INNERTUBE_CONTEXT': {
+                'client': {
+                    'clientName': 'MWEB',
+                    'clientVersion': '2.20210721.07.00',
+                    'hl': 'en',
+                }
+            },
+            'INNERTUBE_CONTEXT_CLIENT_NAME': 2
+        },
     }
 
     _YT_DEFAULT_INNERTUBE_HOSTS = {
@@ -451,10 +465,6 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
 
     # clients starting with _ cannot be explicity requested by the user
     _YT_CLIENTS = {
-        'web': 'WEB',
-        'web_music': 'WEB_REMIX',
-        '_web_embedded': 'WEB_EMBEDDED_PLAYER',
-        '_web_agegate': 'TVHTML5',
         'android': 'ANDROID',
         'android_music': 'ANDROID_MUSIC',
         '_android_embedded': 'ANDROID_EMBEDDED_PLAYER',
@@ -462,7 +472,12 @@ class YoutubeBaseInfoExtractor(InfoExtractor):
         'ios': 'IOS',
         'ios_music': 'IOS_MUSIC',
         '_ios_embedded': 'IOS_MESSAGES_EXTENSION',
-        '_ios_agegate': 'IOS'
+        '_ios_agegate': 'IOS',
+        'web': 'WEB',
+        'web_music': 'WEB_REMIX',
+        '_web_embedded': 'WEB_EMBEDDED_PLAYER',
+        '_web_agegate': 'TVHTML5',
+        'mobile_web': 'MWEB',
     }
 
     def _get_default_ytcfg(self, client='WEB'):
@@ -2430,8 +2445,15 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             identity_token, player_url, initial_pr)
 
     def _get_requested_clients(self, url, smuggled_data):
-        requested_clients = [client for client in self._configuration_arg('player_client')
-                             if client[:0] != '_' and client in self._YT_CLIENTS]
+        requested_clients = []
+        allowed_clients = [client for client in self._YT_CLIENTS.keys() if client[:1] != '_']
+        for client in self._configuration_arg('player_client'):
+            if client in allowed_clients:
+                requested_clients.append(client)
+            elif client == 'all':
+                requested_clients.extend(allowed_clients)
+            else:
+                self.report_warning(f'Skipping unsupported client {client}')
         if not requested_clients:
             requested_clients = ['android', 'web']
 
@@ -2477,11 +2499,12 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
 
     def _extract_formats(self, streaming_data, video_id, player_url, is_live):
         itags, stream_ids = [], []
-        itag_qualities = {}
+        itag_qualities, res_qualities = {}, {}
         q = qualities([
-            # "tiny" is the smallest video-only format. But some audio-only formats
-            # was also labeled "tiny". It is not clear if such formats still exist
-            'tiny', 'audio_quality_low', 'audio_quality_medium', 'audio_quality_high',  # Audio only formats
+            # Normally tiny is the smallest video-only formats. But
+            # audio-only formats with unknown quality may get tagged as tiny
+            'tiny',
+            'audio_quality_ultralow', 'audio_quality_low', 'audio_quality_medium', 'audio_quality_high',  # Audio only formats
             'small', 'medium', 'large', 'hd720', 'hd1080', 'hd1440', 'hd2160', 'hd2880', 'highres'
         ])
         streaming_formats = traverse_obj(streaming_data, (..., ('formats', 'adaptiveFormats'), ...), default=[])
@@ -2497,10 +2520,18 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 continue
 
             quality = fmt.get('quality')
+            height = int_or_none(fmt.get('height'))
             if quality == 'tiny' or not quality:
                 quality = fmt.get('audioQuality', '').lower() or quality
-            if itag and quality:
-                itag_qualities[itag] = quality
+            # The 3gp format (17) in android client has a quality of "small",
+            # but is actually worse than other formats
+            if itag == '17':
+                quality = 'tiny'
+            if quality:
+                if itag:
+                    itag_qualities[itag] = quality
+                if height:
+                    res_qualities[height] = quality
             # FORMAT_STREAM_TYPE_OTF(otf=1) requires downloading the init fragment
             # (adding `&sq=0` to the URL) and parsing emsg box to determine the
             # number of fragment that would subsequently requested with (`&sq=N`)
@@ -2531,13 +2562,14 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 'filesize': int_or_none(fmt.get('contentLength')),
                 'format_id': itag,
                 'format_note': ', '.join(filter(None, (
-                    audio_track.get('displayName'), fmt.get('qualityLabel') or quality))),
+                    audio_track.get('displayName'),
+                    fmt.get('qualityLabel') or quality.replace('audio_quality_', '')))),
                 'fps': int_or_none(fmt.get('fps')),
-                'height': int_or_none(fmt.get('height')),
+                'height': height,
                 'quality': q(quality),
                 'tbr': tbr,
                 'url': fmt_url,
-                'width': fmt.get('width'),
+                'width': int_or_none(fmt.get('width')),
                 'language': audio_track.get('id', '').split('.')[0],
             }
             mime_mobj = re.match(
@@ -2545,11 +2577,6 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
             if mime_mobj:
                 dct['ext'] = mimetype2ext(mime_mobj.group(1))
                 dct.update(parse_codecs(mime_mobj.group(2)))
-                # The 3gp format in android client has a quality of "small",
-                # but is actually worse than all other formats
-                if dct['ext'] == '3gp':
-                    dct['quality'] = q('tiny')
-                    dct['preference'] = -10
             no_audio = dct.get('acodec') == 'none'
             no_video = dct.get('vcodec') == 'none'
             if no_audio:
@@ -2569,11 +2596,16 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
         get_dash = not is_live and 'dash' not in skip_manifests and self.get_param('youtube_include_dash_manifest', True)
         get_hls = 'hls' not in skip_manifests and self.get_param('youtube_include_hls_manifest', True)
 
+        def guess_quality(f):
+            for val, qdict in ((f.get('format_id'), itag_qualities), (f.get('height'), res_qualities)):
+                if val in qdict:
+                    return q(qdict[val])
+            return -1
+
         for sd in streaming_data:
             hls_manifest_url = get_hls and sd.get('hlsManifestUrl')
             if hls_manifest_url:
-                for f in self._extract_m3u8_formats(
-                        hls_manifest_url, video_id, 'mp4', fatal=False):
+                for f in self._extract_m3u8_formats(hls_manifest_url, video_id, 'mp4', fatal=False):
                     itag = self._search_regex(
                         r'/itag/(\d+)', f['url'], 'itag', default=None)
                     if itag in itags:
@@ -2581,19 +2613,18 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                     if itag:
                         f['format_id'] = itag
                         itags.append(itag)
+                    f['quality'] = guess_quality(f)
                     yield f
 
             dash_manifest_url = get_dash and sd.get('dashManifestUrl')
             if dash_manifest_url:
-                for f in self._extract_mpd_formats(
-                        dash_manifest_url, video_id, fatal=False):
+                for f in self._extract_mpd_formats(dash_manifest_url, video_id, fatal=False):
                     itag = f['format_id']
                     if itag in itags:
                         continue
                     if itag:
                         itags.append(itag)
-                    if itag in itag_qualities:
-                        f['quality'] = q(itag_qualities[itag])
+                    f['quality'] = guess_quality(f)
                     filesize = int_or_none(self._search_regex(
                         r'/clen/(\d+)', f.get('fragment_base_url')
                         or f['url'], 'file size', default=None))
@@ -2718,13 +2749,14 @@ class YoutubeIE(YoutubeBaseInfoExtractor):
                 self.raise_no_formats(reason, expected=True)
 
         for f in formats:
-            # TODO: detect if throttled
-            if '&n=' in f['url']:  # possibly throttled
+            if '&c=WEB&' in f['url'] and '&ratebypass=yes&' not in f['url']:  # throttled
                 f['source_preference'] = -10
-                # note = f.get('format_note')
-                # f['format_note'] = f'{note} (throttled)' if note else '(throttled)'
+                note = f.get('format_note')
+                f['format_note'] = f'{note} (throttled)' if note else '(throttled)'
 
-        self._sort_formats(formats)
+        # Source is given priority since formats that throttle are given lower source_preference
+        # When throttling issue is fully fixed, remove this
+        self._sort_formats(formats, ('quality', 'height', 'fps', 'source'))
 
         keywords = get_first(video_details, 'keywords', expected_type=list) or []
         if not keywords and webpage:
