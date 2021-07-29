@@ -1,3 +1,4 @@
+# Template to sync with upstream
 name: Sync Upstream
 
 env:
@@ -17,6 +18,7 @@ env:
 
 # This runs every day on 1801 UTC
 on:
+  # Or on push, if for mirror it runs on workflow setup and changes
   push:
   schedule:
     - cron: '1 18 * * *'
@@ -36,4 +38,3 @@ jobs:
           token: ${{ env.WORKFLOW_TOKEN }}
           merge_args: ${{ env.MERGE_ARGS }}
           push_args: ${{ env.PUSH_ARGS }}
-
