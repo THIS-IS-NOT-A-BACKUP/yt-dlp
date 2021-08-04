@@ -936,6 +936,10 @@ from .ooyala import (
     OoyalaIE,
     OoyalaExternalIE,
 )
+from .openrec import (
+    OpenRecIE,
+    OpenRecCaptureIE,
+)
 from .ora import OraTVIE
 from .orf import (
     ORFTVthekIE,
@@ -1077,6 +1081,7 @@ from .rcs import (
 from .rcti import (
     RCTIPlusIE,
     RCTIPlusSeriesIE,
+    RCTIPlusTVIE,
 )
 from .rds import RDSIE
 from .redbulltv import (
