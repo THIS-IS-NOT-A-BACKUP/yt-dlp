@@ -1461,7 +1461,7 @@ class YoutubeDL(object):
                 else:
                     self.to_screen('[info] Writing playlist metadata as JSON to: ' + infofn)
                     try:
-                        write_json_file(self.filter_requested_info(ie_result, self.params.get('clean_infojson', True)), infofn)
+                        write_json_file(self.sanitize_info(ie_result, self.params.get('clean_infojson', True)), infofn)
                     except (OSError, IOError):
                         self.report_error('Cannot write playlist metadata to JSON file ' + infofn)
 
@@ -2386,7 +2386,7 @@ class YoutubeDL(object):
 
         if self.params.get('forcejson', False):
             self.post_extract(info_dict)
-            self.to_stdout(json.dumps(info_dict, default=repr))
+            self.to_stdout(json.dumps(self.sanitize_info(info_dict), default=repr))
 
     def dl(self, name, info, subtitle=False, test=False):
 
@@ -2548,7 +2548,7 @@ class YoutubeDL(object):
             else:
                 self.to_screen('[info] Writing video metadata as JSON to: ' + infofn)
                 try:
-                    write_json_file(self.filter_requested_info(info_dict, self.params.get('clean_infojson', True)), infofn)
+                    write_json_file(self.sanitize_info(info_dict, self.params.get('clean_infojson', True)), infofn)
                 except (OSError, IOError):
                     self.report_error('Cannot write video metadata to JSON file ' + infofn)
                     return
@@ -2675,16 +2675,17 @@ class YoutubeDL(object):
                         info_dict['ext'] = 'mkv'
                         self.report_warning(
                             'Requested formats are incompatible for merge and will be merged into mkv.')
+                    new_ext = info_dict['ext']
 
-                    def correct_ext(filename):
+                    def correct_ext(filename, ext=new_ext):
                         if filename == '-':
                             return filename
                         filename_real_ext = os.path.splitext(filename)[1][1:]
                         filename_wo_ext = (
                             os.path.splitext(filename)[0]
-                            if filename_real_ext == old_ext
+                            if filename_real_ext in (old_ext, new_ext)
                             else filename)
-                        return '%s.%s' % (filename_wo_ext, info_dict['ext'])
+                        return '%s.%s' % (filename_wo_ext, ext)
 
                     # Ensure filename always has a correct extension for successful merge
                     full_filename = correct_ext(full_filename)
@@ -2729,7 +2730,9 @@ class YoutubeDL(object):
                             del new_info['requested_formats']
                             new_info.update(f)
                             if temp_filename != '-':
-                                fname = prepend_extension(temp_filename, 'f%s' % f['format_id'], new_info['ext'])
+                                fname = prepend_extension(
+                                    correct_ext(temp_filename, new_info['ext']),
+                                    'f%s' % f['format_id'], new_info['ext'])
                                 if not self._ensure_dir_exists(fname):
                                     return
                                 downloaded.append(fname)
@@ -2858,7 +2861,7 @@ class YoutubeDL(object):
             else:
                 if self.params.get('dump_single_json', False):
                     self.post_extract(res)
-                    self.to_stdout(json.dumps(res, default=repr))
+                    self.to_stdout(json.dumps(self.filter_requested_info(res), default=repr))
 
         return self._download_retcode
 
@@ -2867,7 +2870,7 @@ class YoutubeDL(object):
                 [info_filename], mode='r',
                 openhook=fileinput.hook_encoded('utf-8'))) as f:
             # FileInput doesn't have a read method, we can't call json.load
-            info = self.filter_requested_info(json.loads('\n'.join(f)), self.params.get('clean_infojson', True))
+            info = self.sanitize_info(json.loads('\n'.join(f)), self.params.get('clean_infojson', True))
         try:
             self.process_ie_result(info, download=True)
         except (DownloadError, EntryNotInPlaylist, ThrottledDownload):
@@ -2880,10 +2883,11 @@ class YoutubeDL(object):
         return self._download_retcode
 
     @staticmethod
-    def filter_requested_info(info_dict, actually_filter=True):
+    def sanitize_info(info_dict, remove_private_keys=False):
+        ''' Sanitize the infodict for converting to json '''
         remove_keys = ['__original_infodict']  # Always remove this since this may contain a copy of the entire dict
         keep_keys = ['_type'],  # Always keep this to facilitate load-info-json
-        if actually_filter:
+        if remove_private_keys:
             remove_keys += ('requested_formats', 'requested_subtitles', 'requested_entries', 'filepath', 'entries', 'original_url')
             empty_values = (None, {}, [], set(), tuple())
             reject = lambda k, v: k not in keep_keys and (
@@ -2896,6 +2900,11 @@ class YoutubeDL(object):
             else obj if not isinstance(obj, dict)
             else dict((k, filter_fn(v)) for k, v in obj.items() if not reject(k, v)))
         return filter_fn(info_dict)
+
+    @staticmethod
+    def filter_requested_info(info_dict, actually_filter=True):
+        ''' Alias of sanitize_info for backward compatibility '''
+        return YoutubeDL.sanitize_info(info_dict, actually_filter)
 
     def run_pp(self, pp, infodict):
         files_to_delete = []
