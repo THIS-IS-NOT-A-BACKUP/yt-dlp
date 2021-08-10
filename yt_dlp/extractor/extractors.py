@@ -109,7 +109,12 @@ from .awaan import (
 from .azmedien import AZMedienIE
 from .baidu import BaiduVideoIE
 from .bandaichannel import BandaiChannelIE
-from .bandcamp import BandcampIE, BandcampAlbumIE, BandcampWeeklyIE
+from .bandcamp import (
+    BandcampIE,
+    BandcampAlbumIE,
+    BandcampWeeklyIE,
+    BandcampMusicIE,
+)
 from .bbc import (
     BBCCoUkIE,
     BBCCoUkArticleIE,
@@ -151,6 +156,7 @@ from .bitwave import (
     BitwaveStreamIE,
 )
 from .biqle import BIQLEIE
+from .blackboardcollaborate import BlackboardCollaborateIE
 from .bleacherreport import (
     BleacherReportIE,
     BleacherReportCMSIE,
@@ -202,10 +208,7 @@ from .cbc import (
     CBCWatchIE,
     CBCOlympicsIE,
 )
-from .cbs import (
-    CBSIE,
-    ParamountPlusSeriesIE,
-)
+from .cbs import CBSIE
 from .cbslocal import (
     CBSLocalIE,
     CBSLocalArticleIE,
@@ -386,7 +389,10 @@ from .elpais import ElPaisIE
 from .embedly import EmbedlyIE
 from .engadget import EngadgetIE
 from .eporner import EpornerIE
-from .eroprofile import EroProfileIE
+from .eroprofile import (
+    EroProfileIE,
+    EroProfileAlbumIE,
+)
 from .escapist import EscapistIE
 from .espn import (
     ESPNIE,
@@ -735,6 +741,10 @@ from .minds import (
 from .ministrygrid import MinistryGridIE
 from .minoto import MinotoIE
 from .miomio import MioMioIE
+from .mirrativ import (
+    MirrativIE,
+    MirrativUserIE,
+)
 from .mit import TechTVMITIE, OCWMITIE
 from .mitele import MiTeleIE
 from .mixcloud import (
@@ -969,6 +979,10 @@ from .palcomp3 import (
     PalcoMP3VideoIE,
 )
 from .pandoratv import PandoraTVIE
+from .paramountplus import (
+    ParamountPlusIE,
+    ParamountPlusSeriesIE,
+)
 from .parliamentliveuk import ParliamentLiveUKIE
 from .parlview import ParlviewIE
 from .patreon import PatreonIE
