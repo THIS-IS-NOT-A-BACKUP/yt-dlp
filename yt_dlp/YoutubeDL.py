@@ -1117,12 +1117,15 @@ class YoutubeDL(object):
             if age_restricted(info_dict.get('age_limit'), self.params.get('age_limit')):
                 return 'Skipping "%s" because it is age restricted' % video_title
 
-            if not incomplete:
-                match_filter = self.params.get('match_filter')
-                if match_filter is not None:
-                    ret = match_filter(info_dict)
-                    if ret is not None:
-                        return ret
+            match_filter = self.params.get('match_filter')
+            if match_filter is not None:
+                try:
+                    ret = match_filter(info_dict, incomplete=incomplete)
+                except TypeError:
+                    # For backward compatibility
+                    ret = None if incomplete else match_filter(info_dict)
+                if ret is not None:
+                    return ret
             return None
 
         if self.in_download_archive(info_dict):
@@ -1449,7 +1452,7 @@ class YoutubeDL(object):
 
         # Save playlist_index before re-ordering
         entries = [
-            ((playlistitems[i - 1] if playlistitems else i), entry)
+            ((playlistitems[i - 1] if playlistitems else i + playliststart - 1), entry)
             for i, entry in enumerate(entries, 1)
             if entry is not None]
         n_entries = len(entries)
@@ -1514,7 +1517,7 @@ class YoutubeDL(object):
         max_failures = self.params.get('skip_playlist_after_errors') or float('inf')
         for i, entry_tuple in enumerate(entries, 1):
             playlist_index, entry = entry_tuple
-            if 'playlist_index' in self.params.get('compat_options', []):
+            if 'playlist-index' in self.params.get('compat_options', []):
                 playlist_index = playlistitems[i - 1] if playlistitems else i
             self.to_screen('[download] Downloading video %s of %s' % (i, n_entries))
             # This __x_forwarded_for_ip thing is a bit ugly but requires
@@ -2873,13 +2876,13 @@ class YoutubeDL(object):
             except UnavailableVideoError:
                 self.report_error('unable to download video')
             except MaxDownloadsReached:
-                self.to_screen('[info] Maximum number of downloaded files reached')
+                self.to_screen('[info] Maximum number of downloads reached')
                 raise
             except ExistingVideoReached:
-                self.to_screen('[info] Encountered a file that is already in the archive, stopping due to --break-on-existing')
+                self.to_screen('[info] Encountered a video that is already in the archive, stopping due to --break-on-existing')
                 raise
             except RejectedVideoReached:
-                self.to_screen('[info] Encountered a file that did not match filter, stopping due to --break-on-reject')
+                self.to_screen('[info] Encountered a video that did not match filter, stopping due to --break-on-reject')
                 raise
             else:
                 if self.params.get('dump_single_json', False):
@@ -2908,6 +2911,8 @@ class YoutubeDL(object):
     @staticmethod
     def sanitize_info(info_dict, remove_private_keys=False):
         ''' Sanitize the infodict for converting to json '''
+        if info_dict is None:
+            return info_dict
         info_dict.setdefault('epoch', int(time.time()))
         remove_keys = {'__original_infodict'}  # Always remove this since this may contain a copy of the entire dict
         keep_keys = ['_type'],  # Always keep this to facilitate load-info-json
