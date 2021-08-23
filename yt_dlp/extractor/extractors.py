@@ -480,6 +480,7 @@ from .funimation import (
 )
 from .funk import FunkIE
 from .fusion import FusionIE
+from .gab import GabTVIE
 from .gaia import GaiaIE
 from .gameinformer import GameInformerIE
 from .gamespot import GameSpotIE
@@ -1367,7 +1368,10 @@ from .thisamericanlife import ThisAmericanLifeIE
 from .thisav import ThisAVIE
 from .thisoldhouse import ThisOldHouseIE
 from .threeqsdn import ThreeQSDNIE
-from .tiktok import TikTokIE
+from .tiktok import (
+    TikTokIE,
+    TikTokUserIE,
+)
 from .tinypic import TinyPicIE
 from .tmz import TMZIE
 from .tnaflix import (
