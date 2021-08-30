@@ -188,7 +188,6 @@ from .camdemy import (
     CamdemyFolderIE
 )
 from .cammodels import CamModelsIE
-from .camtube import CamTubeIE
 from .camwithher import CamWithHerIE
 from .canalplus import CanalplusIE
 from .canalc2 import Canalc2IE
@@ -1007,10 +1006,17 @@ from .paramountplus import (
 )
 from .parliamentliveuk import ParliamentLiveUKIE
 from .parlview import ParlviewIE
-from .patreon import PatreonIE
+from .patreon import (
+    PatreonIE,
+    PatreonUserIE
+)
 from .pbs import PBSIE
 from .pearvideo import PearVideoIE
 from .peertube import PeerTubeIE
+from .peloton import (
+    PelotonIE,
+    PelotonLiveIE
+)
 from .people import PeopleIE
 from .performgroup import PerformGroupIE
 from .periscope import (
@@ -1307,6 +1313,7 @@ from .srgssr import (
 )
 from .srmediathek import SRMediathekIE
 from .stanfordoc import StanfordOpenClassroomIE
+from .startv import StarTVIE
 from .steam import SteamIE
 from .storyfire import (
     StoryFireIE,
