@@ -511,6 +511,7 @@ from .googlepodcasts import (
 )
 from .googlesearch import GoogleSearchIE
 from .goshgay import GoshgayIE
+from .gotostage import GoToStageIE
 from .gputechconf import GPUTechConfIE
 from .groupon import GrouponIE
 from .hbo import HBOIE
@@ -960,6 +961,7 @@ from .nzz import NZZIE
 from .odatv import OdaTVIE
 from .odnoklassniki import OdnoklassnikiIE
 from .oktoberfesttv import OktoberfestTVIE
+from .olympics import OlympicsReplayIE
 from .ondemandkorea import OnDemandKoreaIE
 from .onet import (
     OnetIE,
@@ -1764,7 +1766,11 @@ from .yandexmusic import (
     YandexMusicArtistTracksIE,
     YandexMusicArtistAlbumsIE,
 )
-from .yandexvideo import YandexVideoIE
+from .yandexvideo import (
+    YandexVideoIE,
+    ZenYandexIE,
+    ZenYandexChannelIE,
+)
 from .yapfiles import YapFilesIE
 from .yesjapan import YesJapanIE
 from .yinyuetai import YinYueTaiIE
