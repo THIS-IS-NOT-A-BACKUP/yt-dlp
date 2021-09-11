@@ -147,6 +147,8 @@ from .bilibili import (
     BilibiliAudioAlbumIE,
     BiliBiliPlayerIE,
     BilibiliChannelIE,
+    BiliIntlIE,
+    BiliIntlSeriesIE,
 )
 from .biobiochiletv import BioBioChileTVIE
 from .bitchute import (
@@ -802,6 +804,7 @@ from .mtv import (
     MTVItaliaProgrammaIE,
 )
 from .muenchentv import MuenchenTVIE
+from .musescore import MuseScoreIE
 from .mwave import MwaveIE, MwaveMeetGreetIE
 from .mxplayer import (
     MxplayerIE,
