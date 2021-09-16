@@ -729,6 +729,7 @@ from .massengeschmacktv import MassengeschmackTVIE
 from .matchtv import MatchTVIE
 from .mdr import MDRIE
 from .medaltv import MedalTVIE
+from .mediaite import MediaiteIE
 from .mediaklikk import MediaKlikkIE
 from .mediaset import MediasetIE
 from .mediasite import (
@@ -1346,6 +1347,7 @@ from .storyfire import (
     StoryFireSeriesIE,
 )
 from .streamable import StreamableIE
+from .streamanity import StreamanityIE
 from .streamcloud import StreamcloudIE
 from .streamcz import StreamCZIE
 from .streetvoice import StreetVoiceIE
