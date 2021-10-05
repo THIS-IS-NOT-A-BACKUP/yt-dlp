@@ -340,7 +340,6 @@ from .discoveryplusindia import (
     DiscoveryPlusIndiaShowIE,
 )
 from .dotsub import DotsubIE
-from .douyin import DouyinIE
 from .douyutv import (
     DouyuShowIE,
     DouyuTVIE,
@@ -525,6 +524,7 @@ from .googlepodcasts import (
     GooglePodcastsFeedIE,
 )
 from .googlesearch import GoogleSearchIE
+from .gopro import GoProIE
 from .goshgay import GoshgayIE
 from .gotostage import GoToStageIE
 from .gputechconf import GPUTechConfIE
@@ -1445,6 +1445,7 @@ from .threeqsdn import ThreeQSDNIE
 from .tiktok import (
     TikTokIE,
     TikTokUserIE,
+    DouyinIE,
 )
 from .tinypic import TinyPicIE
 from .tmz import TMZIE
@@ -1713,6 +1714,7 @@ from .vtm import VTMIE
 from .medialaan import MedialaanIE
 from .vube import VubeIE
 from .vuclip import VuClipIE
+from .vupload import VuploadIE
 from .vvvvid import (
     VVVVIDIE,
     VVVVIDShowIE,
