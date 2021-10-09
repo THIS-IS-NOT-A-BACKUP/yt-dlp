@@ -54,7 +54,11 @@ yt-dlp is a [youtube-dl](https://github.com/ytdl-org/youtube-dl) fork based on t
     * [Modifying metadata examples](#modifying-metadata-examples)
 * [EXTRACTOR ARGUMENTS](#extractor-arguments)
 * [PLUGINS](#plugins)
+* [EMBEDDING YT-DLP](#embedding-yt-dlp)
 * [DEPRECATED OPTIONS](#deprecated-options)
+* [CONTRIBUTING](CONTRIBUTING.md#contributing-to-yt-dlp)
+    * [Opening an Issue](CONTRIBUTING.md#opening-an-issue)
+    * [Developer Instructions](CONTRIBUTING.md#developer-instructions)
 * [MORE](#more)
 </div>
 
@@ -195,7 +199,7 @@ On windows, [Microsoft Visual C++ 2010 SP1 Redistributable Package (x86)](https:
 While all the other dependancies are optional, `ffmpeg` and `ffprobe` are highly recommended
 * [**ffmpeg** and **ffprobe**](https://www.ffmpeg.org) - Required for [merging seperate video and audio files](#format-selection) as well as for various [post-processing](#post-processing-options) tasks. Licence [depends on the build](https://www.ffmpeg.org/legal.html)
 * [**mutagen**](https://github.com/quodlibet/mutagen) - For embedding thumbnail in certain formats. Licenced under [GPLv2+](https://github.com/quodlibet/mutagen/blob/master/COPYING)
-* [**pycryptodomex**](https://github.com/Legrandin/pycryptodomex) - For decrypting AES-128 HLS streams and various other data. Licenced under [BSD2](https://github.com/Legrandin/pycryptodomex/blob/master/LICENSE.rst)
+* [**pycryptodomex**](https://github.com/Legrandin/pycryptodome) - For decrypting AES-128 HLS streams and various other data. Licenced under [BSD2](https://github.com/Legrandin/pycryptodome/blob/master/LICENSE.rst)
 * [**websockets**](https://github.com/aaugustin/websockets) - For downloading over websocket. Licenced under [BSD3](https://github.com/aaugustin/websockets/blob/main/LICENSE)
 * [**keyring**](https://github.com/jaraco/keyring) - For decrypting cookies of chromium-based browsers on Linux. Licenced under [MIT](https://github.com/jaraco/keyring/blob/main/LICENSE)
 * [**AtomicParsley**](https://github.com/wez/atomicparsley) - For embedding thumbnail in mp4/m4a if mutagen is not present. Licenced under [GPLv2+](https://github.com/wez/atomicparsley/blob/master/COPYING)
@@ -283,7 +287,8 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
     --flat-playlist                  Do not extract the videos of a playlist,
                                      only list them
     --no-flat-playlist               Extract the videos of a playlist
-    --mark-watched                   Mark videos watched (YouTube only)
+    --mark-watched                   Mark videos watched (even with --simulate).
+                                     Currently only supported for YouTube
     --no-mark-watched                Do not mark videos watched (default)
     --no-colors                      Do not emit color codes in output
     --compat-options OPTS            Options that can help keep compatibility
@@ -604,7 +609,18 @@ Then simply run `make`. You can also run `make yt-dlp` instead to compile only t
                                      (Alias: --force-download-archive)
     --newline                        Output progress bar as new lines
     --no-progress                    Do not print progress bar
+    --progress                       Show progress bar, even if in quiet mode
     --console-title                  Display progress in console titlebar
+    --progress-template [TYPES:]TEMPLATE
+                                     Template for progress outputs, optionally
+                                     prefixed with one of "download:" (default),
+                                     "download-title:" (the console title),
+                                     "postprocess:",  or "postprocess-title:".
+                                     The video's fields are accessible under the
+                                     "info" key and the progress attributes are
+                                     accessible under "progress" key. Eg:
+                                     --console-title --progress-template
+                                     "download-title:%(info.id)s-%(progress.eta)s"
     -v, --verbose                    Print various debugging information
     --dump-pages                     Print downloaded pages encoded using base64
                                      to debug problems (very verbose)
@@ -1472,6 +1488,9 @@ The following extractors use this feature:
     * `comment_sort`: `top` or `new` (default) - choose comment sorting mode (on YouTube's side).
     * `max_comments`: Maximum amount of comments to download (default all).
     * `max_comment_depth`: Maximum depth for nested comments. YouTube supports depths 1 or 2 (default).
+* **youtubetab**
+  (YouTube playlists, channels, feeds, etc.)
+   * `skip`: One or more of `webpage` (skip initial webpage download), `authcheck` (allow the download of playlists requiring authentication when no initial webpage is downloaded. This may cause unwanted behavior, see [#1122](https://github.com/yt-dlp/yt-dlp/pull/1122) for more details)
 
 * **funimation**
     * `language`: Languages to extract. Eg: `funimation:language=english,japanese`
@@ -1494,6 +1513,84 @@ See [ytdlp_plugins](ytdlp_plugins) for example plugins.
 Note that **all** plugins are imported even if not invoked, and that **there are no checks** performed on plugin code. Use plugins at your own risk and only if you trust the code
 
 If you are a plugin author, add [ytdlp-plugins](https://github.com/topics/ytdlp-plugins) as a topic to your repository for discoverability
+
+
+
+# EMBEDDING YT-DLP
+
+yt-dlp makes the best effort to be a good command-line program, and thus should be callable from any programming language.
+
+Your program should avoid parsing the normal stdout since they may change in future versions. Instead they should use options such as `-J`, `--print`, `--progress-template`, `--exec` etc to create console output that you can reliably reproduce and parse.
+
+From a Python program, you can embed yt-dlp in a more powerful fashion, like this:
+
+```python
+import yt_dlp
+
+ydl_opts = {}
+with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    ydl.download(['https://www.youtube.com/watch?v=BaW_jenozKc'])
+```
+
+Most likely, you'll want to use various options. For a list of options available, have a look at [`yt_dlp/YoutubeDL.py`](yt_dlp/YoutubeDL.py#L154-L452).
+
+Here's a more complete example of a program that outputs only errors (and a short message after the download is finished), converts the video to an mp3 file, implements a custom postprocessor and prints the final info_dict as json:
+
+```python
+import json
+
+import yt_dlp
+from yt_dlp.postprocessor.common import PostProcessor
+
+
+class MyLogger:
+    def debug(self, msg):
+        # For compatability with youtube-dl, both debug and info are passed into debug
+        # You can distinguish them by the prefix '[debug] '
+        if msg.startswith('[debug] '):
+            pass
+        else:
+            self.info(msg)
+
+    def info(self, msg):
+        pass
+
+    def warning(self, msg):
+        pass
+
+    def error(self, msg):
+        print(msg)
+
+
+class MyCustomPP(PostProcessor):
+    def run(self, info):
+        self.to_screen('Doing stuff')
+        return [], info
+
+
+def my_hook(d):
+    if d['status'] == 'finished':
+        print('Done downloading, now converting ...')
+
+
+ydl_opts = {
+    'format': 'bestaudio/best',
+    'postprocessors': [{
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '192',
+    }],
+    'logger': MyLogger(),
+    'progress_hooks': [my_hook],
+}
+
+with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    ydl.add_post_processor(MyCustomPP())
+    info = ydl.extract_info('https://www.youtube.com/watch?v=BaW_jenozKc')
+    print(json.dumps(ydl.sanitize_info(info)))
+```
+
+See the public functions in [`yt_dlp/YoutubeDL.py`](yt_dlp/YoutubeDL.py) for other available functions. Eg: `ydl.download`, `ydl.download_with_info_file`
 
 
 # DEPRECATED OPTIONS
@@ -1597,6 +1694,8 @@ These options were deprecated since 2014 and have now been entirely removed
     -t, --title                      -o "%(title)s-%(id)s.%(ext)s"
     -l, --literal                    -o accepts literal names
 
+# CONTRIBUTING
+See [CONTRIBUTING.md](CONTRIBUTING.md#contributing-to-yt-dlp) for instructions on [Opening an Issue](CONTRIBUTING.md#opening-an-issue) and [Contributing code to the project](CONTRIBUTING.md#developer-instructions)
 
 # MORE
-For FAQ, Developer Instructions etc., see the [original README](https://github.com/ytdl-org/youtube-dl#faq)
+For FAQ see the [youtube-dl README](https://github.com/ytdl-org/youtube-dl#faq)

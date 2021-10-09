@@ -6335,7 +6335,9 @@ def traverse_obj(
     ''' Traverse nested list/dict/tuple
     @param path_list        A list of paths which are checked one by one.
                             Each path is a list of keys where each key is a string,
-                            a tuple of strings or "...". When a tuple is given,
+                            a function, a tuple of strings or "...".
+                            When a fuction is given, it takes the key as argument and
+                            returns whether the key matches or not. When a tuple is given,
                             all the keys given in the tuple are traversed, and
                             "..." traverses all the keys in the object
     @param default          Default value to return
@@ -6368,6 +6370,18 @@ def traverse_obj(
                 _current_depth += 1
                 depth = max(depth, _current_depth)
                 return [_traverse_obj(inner_obj, path[i + 1:], _current_depth) for inner_obj in obj]
+            elif callable(key):
+                if isinstance(obj, (list, tuple, LazyList)):
+                    obj = enumerate(obj)
+                elif isinstance(obj, dict):
+                    obj = obj.items()
+                else:
+                    if not traverse_string:
+                        return None
+                    obj = str(obj)
+                _current_depth += 1
+                depth = max(depth, _current_depth)
+                return [_traverse_obj(v, path[i + 1:], _current_depth) for k, v in obj if key(k)]
             elif isinstance(obj, dict) and not (is_user_input and key == ':'):
                 obj = (obj.get(key) if casesense or (key in obj)
                        else next((v for k, v in obj.items() if _lower(k) == key), None))
@@ -6440,3 +6454,26 @@ def jwt_encode_hs256(payload_data, key, headers={}):
     signature_b64 = base64.b64encode(h.digest())
     token = header_b64 + b'.' + payload_b64 + b'.' + signature_b64
     return token
+
+
+def supports_terminal_sequences(stream):
+    if compat_os_name == 'nt':
+        if get_windows_version() < (10, ):
+            return False
+    elif not os.getenv('TERM'):
+        return False
+    try:
+        return stream.isatty()
+    except BaseException:
+        return False
+
+
+TERMINAL_SEQUENCES = {
+    'DOWN': '\n',
+    'UP': '\x1b[A',
+    'ERASE_LINE': '\x1b[K',
+    'RED': '\033[0;31m',
+    'YELLOW': '\033[0;33m',
+    'BLUE': '\033[0;34m',
+    'RESET_STYLE': '\033[0m',
+}
