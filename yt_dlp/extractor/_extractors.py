@@ -372,8 +372,6 @@ from .crowdbunker import (
     CrowdBunkerChannelIE,
 )
 from .crunchyroll import (
-    CrunchyrollIE,
-    CrunchyrollShowPlaylistIE,
     CrunchyrollBetaIE,
     CrunchyrollBetaShowIE,
 )
@@ -590,6 +588,7 @@ from .foxgay import FoxgayIE
 from .foxnews import (
     FoxNewsIE,
     FoxNewsArticleIE,
+    FoxNewsVideoIE,
 )
 from .foxsports import FoxSportsIE
 from .fptplay import FptplayIE
@@ -912,6 +911,7 @@ from .linkedin import (
 )
 from .linuxacademy import LinuxAcademyIE
 from .liputan6 import Liputan6IE
+from .listennotes import ListenNotesIE
 from .litv import LiTVIE
 from .livejournal import LiveJournalIE
 from .livestream import (
